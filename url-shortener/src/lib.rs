@@ -6,11 +6,12 @@
 
 #![forbid(unsafe_code)]
 
-// Layers are added in their own PRs: `application` (#3), `infrastructure` (#4).
 pub mod api;
+pub mod application;
 pub mod config;
 pub mod domain;
 pub mod error;
+pub mod infrastructure;
 
 use std::sync::Arc;
 
