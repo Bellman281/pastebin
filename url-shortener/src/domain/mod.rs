@@ -20,11 +20,11 @@ pub const URL_MAX_LEN: usize = 2048;
 /// Errors produced when validating client-supplied values.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ValidationError {
-    #[error("short code must be between {CODE_MIN_LEN} and {CODE_MAX_LEN} characters")]
+    #[error("short code must be between 1 and 32 characters")]
     CodeLength,
     #[error("short code must contain only ASCII letters and digits")]
     CodeCharset,
-    #[error("url must be {URL_MAX_LEN} bytes or fewer")]
+    #[error("url must be 2048 bytes or fewer")]
     UrlTooLong,
     #[error("url must be a valid absolute URL with a host")]
     UrlInvalid,

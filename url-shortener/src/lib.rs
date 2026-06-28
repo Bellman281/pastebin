@@ -20,24 +20,26 @@ use axum::Router;
 pub use config::Config;
 pub use error::AppError;
 
-/// Shared, read-mostly application state injected into every handler.
+use application::LinkService;
+use domain::LinkRepository;
+
+/// Shared, read-only application state injected into every handler.
 ///
 /// Held behind an `Arc` by the router; cloning shares ownership rather than
-/// duplicating data. Concrete dependencies (e.g. the repository) are added to
-/// this struct as later PRs introduce them.
-#[derive(Debug)]
+/// duplicating data. `LinkService` itself only holds an `Arc` to the
+/// repository, so the whole state is cheap to share.
 pub struct AppState {
     pub config: Config,
+    pub service: LinkService,
 }
 
-impl AppState {
-    pub fn new(config: Config) -> Self {
-        Self { config }
-    }
-}
-
-/// Build the fully wired Axum application from configuration.
-pub fn build_app(config: Config) -> Router {
-    let state = Arc::new(AppState::new(config));
+/// Build the fully wired Axum application from configuration and a repository.
+///
+/// The repository is injected as `Arc<dyn LinkRepository>` (Dependency
+/// Inversion): production passes the SQLite adapter, tests pass the in-memory
+/// double — neither this function nor the handlers change.
+pub fn build_app(config: Config, repo: Arc<dyn LinkRepository>) -> Router {
+    let service = LinkService::new(repo);
+    let state = Arc::new(AppState { config, service });
     api::router(state)
 }

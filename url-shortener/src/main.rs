@@ -3,10 +3,13 @@
 #![forbid(unsafe_code)]
 
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use tokio::net::TcpListener;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+use url_shortener::domain::LinkRepository;
+use url_shortener::infrastructure::SqliteLinkRepository;
 use url_shortener::{build_app, Config};
 
 #[tokio::main]
@@ -26,7 +29,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = Config::from_env()?;
     let bind_addr = config.bind_addr;
 
-    let app = build_app(config);
+    let repo: Arc<dyn LinkRepository> = Arc::new(
+        SqliteLinkRepository::connect(&config.database_url, config.database_max_connections).await?,
+    );
+
+    let app = build_app(config, repo);
 
     let listener = TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "url-shortener listening");
