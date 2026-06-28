@@ -1,0 +1,6 @@
+# Virtual workspace: each service stays in its own folder but shares one
+# build cache (./target) and one Cargo.lock for consistent dependency versions.
+# `pastebin-service` joins this list once it has its own Cargo.toml (its PR #1).
+[workspace]
+resolver = "2"
+members = ["url-shortener"]
