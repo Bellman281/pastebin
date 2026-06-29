@@ -87,9 +87,9 @@ before insert; the trade-off is losing custom aliases and per-link analytics.
 shared state, because the **database is the arbiter**. Two requests that generate
 the same random code both attempt to insert; the primary key lets exactly one
 win, the loser receives a unique violation, and `create` retries with a fresh
-code (optimistic insert + bounded retry). At 7 base62 chars the collision
-probability is ~10⁻⁶ even at 10M links, so retries are rare. Custom-alias clashes
-return `409 Conflict`.
+code (optimistic insert + bounded retry). At 7 base62 chars the *per-insert*
+collision chance is ~10⁻⁶, which works out to roughly a dozen retries total
+across 10M links — negligible. Custom-alias clashes return `409 Conflict`.
 
 **Read/write concurrency.** Two aspects:
 - *Correctness:* hits are counted with `UPDATE … SET hits = hits + 1`, a single
@@ -144,6 +144,24 @@ cargo test
 cargo clippy -- -D warnings
 cargo fmt --check
 ```
+
+## Testing
+
+The suite runs without any external services (integration tests use the
+in-memory repository; the SQLite adapter test uses a single shared `:memory:`
+connection):
+
+- **Domain unit tests** — `ShortCode`/`TargetUrl` validation, `Link` invariants.
+- **Error mapping** — each `AppError` variant maps to the correct HTTP status.
+- **Application use cases** — create (with/without alias), resolve increments
+  hits, get, delete, duplicate-alias conflict, generated-code validity.
+- **SQLite adapter** — insert / unique-violation → `Conflict` / get / increment /
+  delete against an in-memory database.
+- **End-to-end** (`tests/links.rs`) — full lifecycle over the real Axum app:
+  create → 302 redirect (hit counted) → metadata → delete → 404; plus
+  invalid-URL `400` and duplicate-alias `409`.
+
+Run everything with `cargo test`.
 
 ## Layout
 
