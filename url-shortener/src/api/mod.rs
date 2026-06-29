@@ -34,6 +34,7 @@ impl From<ServiceError> for AppError {
             ServiceError::Validation(v) => AppError::Validation(v.to_string()),
             ServiceError::NotFound => AppError::NotFound,
             ServiceError::Conflict => AppError::Conflict("short code already in use".to_owned()),
+            ServiceError::Blocked => AppError::Validation("target host is not allowed".to_owned()),
             ServiceError::Backend(cause) => AppError::Internal(cause),
         }
     }

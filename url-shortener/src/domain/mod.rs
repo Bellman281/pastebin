@@ -104,6 +104,13 @@ impl TargetUrl {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// The lowercased host of this (already-validated) URL, if any.
+    pub fn host(&self) -> Option<String> {
+        url::Url::parse(&self.0)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
+    }
 }
 
 impl fmt::Display for TargetUrl {

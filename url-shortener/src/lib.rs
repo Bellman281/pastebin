@@ -39,7 +39,7 @@ pub struct AppState {
 /// Inversion): production passes the SQLite adapter, tests pass the in-memory
 /// double — neither this function nor the handlers change.
 pub fn build_app(config: Config, repo: Arc<dyn LinkRepository>) -> Router {
-    let service = LinkService::new(repo);
+    let service = LinkService::new(repo, config.blocked_hosts.clone());
     let state = Arc::new(AppState { config, service });
     api::router(state)
 }

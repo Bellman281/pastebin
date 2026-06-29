@@ -24,6 +24,10 @@ Links never expire by default. Pass `ttl_seconds` on create to set an expiry;
 expired links resolve as `404` and are lazily purged on access. Responses include
 `expires_at` (Unix seconds, or `null`).
 
+Set `BLOCKED_HOSTS` (comma-separated) to refuse shortening specific hosts and
+their subdomains — e.g. `BLOCKED_HOSTS=evil.com,malware.test`. A blocked target
+is rejected at create time with `400`.
+
 ## Architecture
 
 ```

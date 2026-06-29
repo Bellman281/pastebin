@@ -22,6 +22,8 @@ pub struct Config {
     pub request_timeout_secs: u64,
     /// Max in-flight requests; excess requests wait (bounded by the timeout).
     pub max_concurrent_requests: usize,
+    /// Hosts (and their subdomains) that may not be shortened. Lowercased.
+    pub blocked_hosts: Vec<String>,
 }
 
 impl Config {
@@ -53,6 +55,13 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("MAX_CONCURRENT_REQUESTS"))?;
 
+        // Comma-separated host denylist, e.g. "evil.com, malware.test".
+        let blocked_hosts = env_or("BLOCKED_HOSTS", "")
+            .split(',')
+            .map(|s| s.trim().to_ascii_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect();
+
         Ok(Self {
             bind_addr,
             max_body_bytes,
@@ -61,6 +70,7 @@ impl Config {
             public_base_url,
             request_timeout_secs,
             max_concurrent_requests,
+            blocked_hosts,
         })
     }
 }

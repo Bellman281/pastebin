@@ -20,6 +20,7 @@ fn test_config() -> Config {
         public_base_url: "http://localhost".to_owned(),
         request_timeout_secs: 10,
         max_concurrent_requests: 1024,
+        blocked_hosts: Vec::new(),
     }
 }
 

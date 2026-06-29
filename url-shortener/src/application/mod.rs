@@ -29,6 +29,8 @@ pub enum ServiceError {
     NotFound,
     #[error("short code already in use")]
     Conflict,
+    #[error("target host is not allowed")]
+    Blocked,
     #[error(transparent)]
     Backend(BoxedError),
 }
@@ -46,11 +48,27 @@ impl From<RepoError> for ServiceError {
 #[derive(Clone)]
 pub struct LinkService {
     repo: Arc<dyn LinkRepository>,
+    /// Hosts (and their subdomains) that may not be shortened. Lowercased.
+    blocked_hosts: Vec<String>,
 }
 
 impl LinkService {
-    pub fn new(repo: Arc<dyn LinkRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn LinkRepository>, blocked_hosts: Vec<String>) -> Self {
+        Self { repo, blocked_hosts }
+    }
+
+    /// True if `target`'s host is on the denylist (exact host or a subdomain).
+    fn is_blocked(&self, target: &TargetUrl) -> bool {
+        if self.blocked_hosts.is_empty() {
+            return false;
+        }
+        match target.host() {
+            Some(host) => self
+                .blocked_hosts
+                .iter()
+                .any(|b| host == *b || host.ends_with(&format!(".{b}"))),
+            None => false,
+        }
     }
 
     /// Create a link for `url`. When `alias` is given it is used verbatim (and a
@@ -62,6 +80,9 @@ impl LinkService {
         ttl_seconds: Option<u64>,
     ) -> Result<Link, ServiceError> {
         let target = TargetUrl::parse(url).map_err(ServiceError::Validation)?;
+        if self.is_blocked(&target) {
+            return Err(ServiceError::Blocked);
+        }
         let created_at = now_unix();
         let expires_at = ttl_seconds.map(|secs| created_at.saturating_add(secs as i64));
 
@@ -150,7 +171,7 @@ mod tests {
     use crate::infrastructure::InMemoryLinkRepository;
 
     fn service() -> LinkService {
-        LinkService::new(Arc::new(InMemoryLinkRepository::default()))
+        LinkService::new(Arc::new(InMemoryLinkRepository::default()), Vec::new())
     }
 
     #[test]
@@ -256,9 +277,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn blocked_host_is_rejected_subdomains_included() {
+        let repo = Arc::new(InMemoryLinkRepository::default());
+        let svc = LinkService::new(repo, vec!["evil.com".to_owned()]);
+
+        // Exact host and a subdomain are both blocked.
+        assert!(matches!(
+            svc.create("https://evil.com/x".to_owned(), None, None).await,
+            Err(ServiceError::Blocked)
+        ));
+        assert!(matches!(
+            svc.create("https://sub.evil.com/x".to_owned(), None, None).await,
+            Err(ServiceError::Blocked)
+        ));
+        // A different host is allowed (note: "notevil.com" must NOT match).
+        assert!(svc
+            .create("https://notevil.com".to_owned(), None, None)
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
     async fn expired_link_is_not_found_and_purged() {
         let repo = Arc::new(InMemoryLinkRepository::default());
-        let svc = LinkService::new(repo.clone());
+        let svc = LinkService::new(repo.clone(), Vec::new());
 
         // Insert a link that already expired (far in the past), directly via the repo.
         let expired = Link::with_expiry(
