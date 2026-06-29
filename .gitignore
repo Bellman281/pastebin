@@ -3,8 +3,11 @@
 **/*.rs.bk
 
 # Local SQLite databases and env files.
+# Covers the DB plus its WAL sidecars (-wal/-shm) and rollback journal.
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 .env
