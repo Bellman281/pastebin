@@ -55,6 +55,44 @@ change a line. The `LinkRepository` trait is the seam (Dependency Inversion).
 - **Redirect** — `GET /:code` → `LinkService::resolve` looks up the target by
   primary key, counts the hit, and returns `302 Found` with a `Location` header.
 
+## How short codes are generated
+
+The generator lives in `src/application/mod.rs` (`generate_code`). The algorithm
+is deliberately simple:
+
+1. **Draw 7 random characters** from a 62-character base62 alphabet
+   (`A–Z`, `a–z`, `0–9`) using `rand::thread_rng()`, a cryptographically strong,
+   per-thread RNG. That's **62⁷ ≈ 3.5 × 10¹²** possible codes.
+2. **Let the database guarantee uniqueness.** The `code` column is the table's
+   `PRIMARY KEY`, so the code is *not* checked beforehand — we just `INSERT`. If
+   a duplicate ever occurs the insert fails with a unique violation, and
+   `create` generates a fresh code and retries (bounded to 5 attempts). At 7
+   chars the per-insert clash chance is ~10⁻⁶, ≈ a dozen retries total across
+   10M links — negligible.
+3. **Custom aliases** are supported: send `{"alias": "my-name"}` and that string
+   is validated and used verbatim; a clash returns `409 Conflict`.
+
+The code carries **no timestamp and no sequence number**. That is intentional:
+
+- **Unguessable / non-enumerable** — you can't walk `/1`, `/2`, … to scrape
+  links or infer how many exist. The CSPRNG output has nothing to predict.
+- **No shared counter** — each instance generates codes independently, with no
+  coordination, which is what lets the service scale out (share-nothing).
+- **Same-millisecond requests are fine** — codes don't depend on time, so two
+  requests in the same instant simply draw independent values; the DB arbitrates
+  any rare clash.
+
+**Reversing a code → original URL is a key lookup, not decoding.** We store the
+`code → target` row at create time; `GET /:code` reads it back by primary key
+and issues the 302. There is no math to "decode" a code.
+
+> Alternative: a monotonic counter + a keyed obfuscation (Feistel/Sqids) is the
+> other common approach (collision-free by construction, non-sequential if
+> obfuscated). It mainly pays off at billions of links or when you want
+> minimal-length codes. Trade-offs are documented in
+> [`../docs/DESIGN.md`](../docs/DESIGN.md) §4. We use random because, at this
+> scale, it is simpler and needs no secret key.
+
 ## Design decisions & FAQ
 
 **Do we cache?** Reads are extremely skewed (a few codes get most hits), so a
