@@ -141,3 +141,40 @@ async fn unknown_code_redirect_is_not_found() {
     let (status, _) = send(&app, get("/nope")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn create_with_ttl_sets_expiry_and_still_resolves() {
+    let app = app();
+    let (status, body) = send(
+        &app,
+        post_json(
+            "/api/links",
+            r#"{"url":"https://example.com","alias":"ttl","ttl_seconds":3600}"#,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert!(json(&body)["expires_at"].is_i64(), "expires_at should be set");
+
+    // Not expired yet → still redirects.
+    let (status, _) = send(&app, get("/ttl")).await;
+    assert_eq!(status, StatusCode::FOUND);
+}
+
+#[tokio::test]
+async fn expired_link_redirect_is_not_found() {
+    let app = app();
+    // ttl_seconds:0 means expires_at == created_at, so it's expired on read.
+    let (status, _) = send(
+        &app,
+        post_json(
+            "/api/links",
+            r#"{"url":"https://example.com","alias":"exp","ttl_seconds":0}"#,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let (status, _) = send(&app, get("/exp")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

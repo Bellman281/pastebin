@@ -62,12 +62,14 @@ fn backend(err: impl std::error::Error + Send + Sync + 'static) -> RepoError {
 impl LinkRepository for SqliteLinkRepository {
     async fn insert(&self, link: &Link) -> Result<(), RepoError> {
         let result = sqlx::query(
-            "INSERT INTO links (code, target, created_at, hits) VALUES (?, ?, ?, ?)",
+            "INSERT INTO links (code, target, created_at, hits, expires_at) \
+             VALUES (?, ?, ?, ?, ?)",
         )
         .bind(link.code.as_str())
         .bind(link.target.as_str())
         .bind(link.created_at)
         .bind(link.hits)
+        .bind(link.expires_at)
         .execute(&self.pool)
         .await;
 
@@ -79,11 +81,13 @@ impl LinkRepository for SqliteLinkRepository {
     }
 
     async fn get(&self, code: &ShortCode) -> Result<Option<Link>, RepoError> {
-        let row = sqlx::query("SELECT code, target, created_at, hits FROM links WHERE code = ?")
-            .bind(code.as_str())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(backend)?;
+        let row = sqlx::query(
+            "SELECT code, target, created_at, hits, expires_at FROM links WHERE code = ?",
+        )
+        .bind(code.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(backend)?;
 
         let Some(row) = row else { return Ok(None) };
 
@@ -93,12 +97,14 @@ impl LinkRepository for SqliteLinkRepository {
         let target: String = row.try_get("target").map_err(backend)?;
         let created_at: i64 = row.try_get("created_at").map_err(backend)?;
         let hits: i64 = row.try_get("hits").map_err(backend)?;
+        let expires_at: Option<i64> = row.try_get("expires_at").map_err(backend)?;
 
         Ok(Some(Link {
             code: ShortCode::from_trusted(code),
             target: TargetUrl::from_trusted(target),
             created_at,
             hits,
+            expires_at,
         }))
     }
 

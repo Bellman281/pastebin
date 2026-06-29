@@ -82,6 +82,9 @@ pub struct CreateLinkRequest {
     /// Optional custom alias; if omitted a code is generated.
     #[serde(default)]
     pub alias: Option<String>,
+    /// Optional time-to-live in seconds; omit for a link that never expires.
+    #[serde(default)]
+    pub ttl_seconds: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -90,6 +93,8 @@ pub struct CreateLinkResponse {
     pub short_url: String,
     pub target: String,
     pub created_at: i64,
+    /// Expiry as Unix seconds, or `null` if the link never expires.
+    pub expires_at: Option<i64>,
 }
 
 impl CreateLinkResponse {
@@ -100,6 +105,7 @@ impl CreateLinkResponse {
             short_url: format!("{}/{}", base_url.trim_end_matches('/'), code),
             target: link.target.as_str().to_owned(),
             created_at: link.created_at,
+            expires_at: link.expires_at,
         }
     }
 }
@@ -110,6 +116,8 @@ pub struct LinkResponse {
     pub target: String,
     pub created_at: i64,
     pub hits: i64,
+    /// Expiry as Unix seconds, or `null` if the link never expires.
+    pub expires_at: Option<i64>,
 }
 
 impl LinkResponse {
@@ -119,6 +127,7 @@ impl LinkResponse {
             target: link.target.as_str().to_owned(),
             created_at: link.created_at,
             hits: link.hits,
+            expires_at: link.expires_at,
         }
     }
 }
@@ -152,7 +161,7 @@ async fn create_link(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateLinkRequest>,
 ) -> Result<(StatusCode, Json<CreateLinkResponse>), AppError> {
-    let link = state.service.create(req.url, req.alias).await?;
+    let link = state.service.create(req.url, req.alias, req.ttl_seconds).await?;
     let body = CreateLinkResponse::from_link(&link, &state.config.public_base_url);
     Ok((StatusCode::CREATED, Json(body)))
 }

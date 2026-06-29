@@ -59,20 +59,22 @@ impl LinkService {
         &self,
         url: String,
         alias: Option<String>,
+        ttl_seconds: Option<u64>,
     ) -> Result<Link, ServiceError> {
         let target = TargetUrl::parse(url).map_err(ServiceError::Validation)?;
         let created_at = now_unix();
+        let expires_at = ttl_seconds.map(|secs| created_at.saturating_add(secs as i64));
 
         if let Some(alias) = alias {
             let code = ShortCode::parse(alias).map_err(ServiceError::Validation)?;
-            let link = Link::new(code, target, created_at);
+            let link = Link::with_expiry(code, target, created_at, expires_at);
             self.repo.insert(&link).await?; // RepoError -> ServiceError via From
             return Ok(link);
         }
 
         for _ in 0..MAX_GENERATION_ATTEMPTS {
             let code = ShortCode::from_trusted(generate_code(GENERATED_CODE_LEN));
-            let link = Link::new(code, target.clone(), created_at);
+            let link = Link::with_expiry(code, target.clone(), created_at, expires_at);
             match self.repo.insert(&link).await {
                 Ok(()) => return Ok(link),
                 Err(RepoError::Conflict) => continue,
@@ -89,6 +91,10 @@ impl LinkService {
     pub async fn resolve(&self, code: String) -> Result<TargetUrl, ServiceError> {
         let code = ShortCode::parse(code).map_err(|_| ServiceError::NotFound)?;
         let link = self.repo.get(&code).await?.ok_or(ServiceError::NotFound)?;
+        if link.is_expired(now_unix()) {
+            let _ = self.repo.delete(&code).await; // best-effort lazy purge
+            return Err(ServiceError::NotFound);
+        }
         self.repo.increment_hits(&code).await?;
         Ok(link.target)
     }
@@ -96,7 +102,12 @@ impl LinkService {
     /// Fetch link metadata without counting a hit.
     pub async fn get(&self, code: String) -> Result<Link, ServiceError> {
         let code = ShortCode::parse(code).map_err(|_| ServiceError::NotFound)?;
-        self.repo.get(&code).await?.ok_or(ServiceError::NotFound)
+        let link = self.repo.get(&code).await?.ok_or(ServiceError::NotFound)?;
+        if link.is_expired(now_unix()) {
+            let _ = self.repo.delete(&code).await;
+            return Err(ServiceError::NotFound);
+        }
+        Ok(link)
     }
 
     /// Readiness check: confirm the backing store is reachable.
@@ -153,7 +164,7 @@ mod tests {
     async fn create_then_get_roundtrips() {
         let svc = service();
         let link = svc
-            .create("https://example.com".to_owned(), None)
+            .create("https://example.com".to_owned(), None, None)
             .await
             .unwrap();
         let fetched = svc.get(link.code.as_str().to_owned()).await.unwrap();
@@ -164,18 +175,21 @@ mod tests {
     #[tokio::test]
     async fn create_rejects_invalid_url() {
         let svc = service();
-        let err = svc.create("ftp://nope".to_owned(), None).await.unwrap_err();
+        let err = svc
+            .create("ftp://nope".to_owned(), None, None)
+            .await
+            .unwrap_err();
         assert!(matches!(err, ServiceError::Validation(_)));
     }
 
     #[tokio::test]
     async fn custom_alias_conflict_is_reported() {
         let svc = service();
-        svc.create("https://a.com".to_owned(), Some("mylink".to_owned()))
+        svc.create("https://a.com".to_owned(), Some("mylink".to_owned()), None)
             .await
             .unwrap();
         let err = svc
-            .create("https://b.com".to_owned(), Some("mylink".to_owned()))
+            .create("https://b.com".to_owned(), Some("mylink".to_owned()), None)
             .await
             .unwrap_err();
         assert!(matches!(err, ServiceError::Conflict));
@@ -185,7 +199,7 @@ mod tests {
     async fn resolve_increments_hits_and_returns_target() {
         let svc = service();
         let link = svc
-            .create("https://example.com".to_owned(), Some("xy".to_owned()))
+            .create("https://example.com".to_owned(), Some("xy".to_owned()), None)
             .await
             .unwrap();
         let target = svc.resolve(link.code.as_str().to_owned()).await.unwrap();
@@ -219,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn delete_removes_link() {
         let svc = service();
-        svc.create("https://a.com".to_owned(), Some("gone".to_owned()))
+        svc.create("https://a.com".to_owned(), Some("gone".to_owned()), None)
             .await
             .unwrap();
         svc.delete("gone".to_owned()).await.unwrap();
@@ -227,5 +241,40 @@ mod tests {
             svc.get("gone".to_owned()).await,
             Err(ServiceError::NotFound)
         ));
+    }
+
+    #[tokio::test]
+    async fn create_with_ttl_sets_future_expiry_and_resolves() {
+        let svc = service();
+        let link = svc
+            .create("https://example.com".to_owned(), Some("ttl".to_owned()), Some(3600))
+            .await
+            .unwrap();
+        assert!(link.expires_at.is_some());
+        // Not expired yet, so it still resolves.
+        assert!(svc.resolve("ttl".to_owned()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn expired_link_is_not_found_and_purged() {
+        let repo = Arc::new(InMemoryLinkRepository::default());
+        let svc = LinkService::new(repo.clone());
+
+        // Insert a link that already expired (far in the past), directly via the repo.
+        let expired = Link::with_expiry(
+            ShortCode::parse("old").unwrap(),
+            TargetUrl::parse("https://example.com").unwrap(),
+            1_000,
+            Some(1_001),
+        );
+        repo.insert(&expired).await.unwrap();
+
+        assert!(matches!(
+            svc.get("old".to_owned()).await,
+            Err(ServiceError::NotFound)
+        ));
+        // Lazy purge removed it from the store.
+        let gone = repo.get(&ShortCode::parse("old").unwrap()).await.unwrap();
+        assert!(gone.is_none());
     }
 }

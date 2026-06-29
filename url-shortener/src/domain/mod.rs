@@ -121,12 +121,29 @@ pub struct Link {
     pub created_at: i64,
     /// Number of successful redirects served.
     pub hits: i64,
+    /// Optional expiry as Unix seconds (UTC). `None` means the link never expires.
+    pub expires_at: Option<i64>,
 }
 
 impl Link {
-    /// Create a brand-new link with zero hits.
+    /// Create a brand-new link with zero hits and no expiry.
     pub fn new(code: ShortCode, target: TargetUrl, created_at: i64) -> Self {
-        Self { code, target, created_at, hits: 0 }
+        Self { code, target, created_at, hits: 0, expires_at: None }
+    }
+
+    /// Create a brand-new link with zero hits and an optional expiry.
+    pub fn with_expiry(
+        code: ShortCode,
+        target: TargetUrl,
+        created_at: i64,
+        expires_at: Option<i64>,
+    ) -> Self {
+        Self { code, target, created_at, hits: 0, expires_at }
+    }
+
+    /// True if the link has an expiry that is at or before `now` (Unix seconds).
+    pub fn is_expired(&self, now: i64) -> bool {
+        matches!(self.expires_at, Some(exp) if now >= exp)
     }
 }
 
@@ -210,12 +227,27 @@ mod tests {
     }
 
     #[test]
-    fn new_link_starts_with_zero_hits() {
+    fn new_link_starts_with_zero_hits_and_no_expiry() {
         let link = Link::new(
             ShortCode::parse("abc").unwrap(),
             TargetUrl::parse("https://example.com").unwrap(),
             1_700_000_000,
         );
         assert_eq!(link.hits, 0);
+        assert_eq!(link.expires_at, None);
+        assert!(!link.is_expired(i64::MAX));
+    }
+
+    #[test]
+    fn is_expired_respects_the_boundary() {
+        let link = Link::with_expiry(
+            ShortCode::parse("abc").unwrap(),
+            TargetUrl::parse("https://example.com").unwrap(),
+            1_700_000_000,
+            Some(1_700_000_100),
+        );
+        assert!(!link.is_expired(1_700_000_099));
+        assert!(link.is_expired(1_700_000_100)); // at expiry == expired
+        assert!(link.is_expired(1_700_000_101));
     }
 }

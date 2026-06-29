@@ -13,12 +13,16 @@ business logic is framework- and database-agnostic and fully unit-testable.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/links` | Create a short link (`{"url": "...", "alias": "optional"}`) → `201` |
+| `POST` | `/api/links` | Create a short link (`{"url": "...", "alias?": "...", "ttl_seconds?": 3600}`) → `201` |
 | `GET` | `/:code` | **302** redirect to the original URL (counts a hit) |
 | `GET` | `/api/links/:code` | Link metadata (target, hits, created_at) |
 | `DELETE` | `/api/links/:code` | Remove a link → `204` |
 | `GET` | `/health` | Liveness probe (process up; no dependencies) |
 | `GET` | `/health/ready` | Readiness probe — checks the DB; `200` ready / `503` unavailable |
+
+Links never expire by default. Pass `ttl_seconds` on create to set an expiry;
+expired links resolve as `404` and are lazily purged on access. Responses include
+`expires_at` (Unix seconds, or `null`).
 
 ## Architecture
 
