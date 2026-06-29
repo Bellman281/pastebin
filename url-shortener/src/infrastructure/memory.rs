@@ -52,6 +52,10 @@ impl LinkRepository for InMemoryLinkRepository {
     async fn delete(&self, code: &ShortCode) -> Result<bool, RepoError> {
         Ok(self.guard().remove(code.as_str()).is_some())
     }
+
+    async fn ping(&self) -> Result<(), RepoError> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -99,6 +99,12 @@ impl LinkService {
         self.repo.get(&code).await?.ok_or(ServiceError::NotFound)
     }
 
+    /// Readiness check: confirm the backing store is reachable.
+    pub async fn ready(&self) -> Result<(), ServiceError> {
+        self.repo.ping().await?;
+        Ok(())
+    }
+
     /// Delete a link, or `NotFound` if it does not exist.
     pub async fn delete(&self, code: String) -> Result<(), ServiceError> {
         let code = ShortCode::parse(code).map_err(|_| ServiceError::NotFound)?;
@@ -203,6 +209,11 @@ mod tests {
             svc.delete("missing".to_owned()).await,
             Err(ServiceError::NotFound)
         ));
+    }
+
+    #[tokio::test]
+    async fn ready_succeeds_with_reachable_store() {
+        assert!(service().ready().await.is_ok());
     }
 
     #[tokio::test]

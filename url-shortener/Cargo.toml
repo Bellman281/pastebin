@@ -23,6 +23,9 @@ async-trait = "0.1"
 rand = "0.8"
 # Infrastructure (PR #4): async SQLite via a bounded connection pool.
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+# Hardening (PR #6): middleware stack.
+tower = { version = "0.4", features = ["limit"] }                       # ConcurrencyLimitLayer + ServiceBuilder
+tower-http = { version = "0.5", features = ["trace", "timeout", "catch-panic"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "test-util"] }

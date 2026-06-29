@@ -21,6 +21,8 @@ fn config() -> Config {
         database_url: "sqlite::memory:".to_owned(),
         database_max_connections: 1,
         public_base_url: "http://localhost".to_owned(),
+        request_timeout_secs: 10,
+        max_concurrent_requests: 1024,
     }
 }
 

@@ -158,6 +158,9 @@ pub trait LinkRepository: Send + Sync + 'static {
 
     /// Delete a link; returns `true` if a row was removed.
     async fn delete(&self, code: &ShortCode) -> Result<bool, RepoError>;
+
+    /// Cheap connectivity check for readiness probes (e.g. `SELECT 1`).
+    async fn ping(&self) -> Result<(), RepoError>;
 }
 
 #[cfg(test)]

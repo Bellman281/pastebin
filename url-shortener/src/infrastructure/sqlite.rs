@@ -119,6 +119,11 @@ impl LinkRepository for SqliteLinkRepository {
             .map_err(backend)?;
         Ok(result.rows_affected() > 0)
     }
+
+    async fn ping(&self) -> Result<(), RepoError> {
+        sqlx::query("SELECT 1").execute(&self.pool).await.map_err(backend)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

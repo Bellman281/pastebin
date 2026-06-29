@@ -18,6 +18,10 @@ pub struct Config {
     pub database_max_connections: u32,
     /// Base URL used to build the full short link returned to clients.
     pub public_base_url: String,
+    /// Per-request timeout in seconds (a slow request is cut off with 408).
+    pub request_timeout_secs: u64,
+    /// Max in-flight requests; excess requests wait (bounded by the timeout).
+    pub max_concurrent_requests: usize,
 }
 
 impl Config {
@@ -41,12 +45,22 @@ impl Config {
 
         let public_base_url = env_or("PUBLIC_BASE_URL", "http://127.0.0.1:8080");
 
+        let request_timeout_secs = env_or("REQUEST_TIMEOUT_SECS", "10")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("REQUEST_TIMEOUT_SECS"))?;
+
+        let max_concurrent_requests = env_or("MAX_CONCURRENT_REQUESTS", "1024")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("MAX_CONCURRENT_REQUESTS"))?;
+
         Ok(Self {
             bind_addr,
             max_body_bytes,
             database_url,
             database_max_connections,
             public_base_url,
+            request_timeout_secs,
+            max_concurrent_requests,
         })
     }
 }

@@ -17,7 +17,8 @@ business logic is framework- and database-agnostic and fully unit-testable.
 | `GET` | `/:code` | **302** redirect to the original URL (counts a hit) |
 | `GET` | `/api/links/:code` | Link metadata (target, hits, created_at) |
 | `DELETE` | `/api/links/:code` | Remove a link → `204` |
-| `GET` | `/health` | Liveness probe |
+| `GET` | `/health` | Liveness probe (process up; no dependencies) |
+| `GET` | `/health/ready` | Readiness probe — checks the DB; `200` ready / `503` unavailable |
 
 ## Architecture
 
@@ -109,6 +110,25 @@ interchangeable instances behind a load balancer.
 
 See [`../docs/SCALING.md`](../docs/SCALING.md) for the full path to ~10M users
 (external cache, channel-batched hit counting, PostgreSQL, horizontal scaling).
+
+## Hardening (PR #6)
+
+Every request passes through a middleware stack (outer → inner): a
+`tower_http` **TraceLayer** (structured per-request logs — set
+`RUST_LOG=info,tower_http=debug` to see them), a **CatchPanicLayer** (a handler
+panic becomes a `500`, not a dropped connection), a **TimeoutLayer**
+(`REQUEST_TIMEOUT_SECS`, slow requests get `408`), a **ConcurrencyLimitLayer**
+(`MAX_CONCURRENT_REQUESTS`, caps in-flight work), and the body-size limit.
+
+Liveness vs readiness are split deliberately: `/health` is dependency-free (so a
+DB blip never restarts a healthy pod), while `/health/ready` checks the store
+and returns `503` when it's unreachable, so a load balancer drains the instance.
+
+### Smoke test (against a running server)
+
+`scripts/smoke_test.sh` (optional dev tooling — `bash`+`curl`, no extra deps)
+exercises the live API end to end: create → reverse-lookup redirect → metadata →
+delete. See "Run it in two terminals" below.
 
 ## Memory & safety
 
