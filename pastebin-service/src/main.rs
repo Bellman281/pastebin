@@ -1,0 +1,74 @@
+//! Composition root: load config, build the app, serve with graceful shutdown.
+
+#![forbid(unsafe_code)]
+
+use std::process::ExitCode;
+
+use tokio::net::TcpListener;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+use pastebin_service::{build_app, Config};
+
+#[tokio::main]
+async fn main() -> ExitCode {
+    init_tracing();
+
+    match run().await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            tracing::error!(error = %err, "fatal startup error");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let config = Config::from_env()?;
+    let bind_addr = config.bind_addr;
+
+    let app = build_app(config);
+
+    let listener = TcpListener::bind(bind_addr).await?;
+    tracing::info!(%bind_addr, "pastebin-service listening");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    Ok(())
+}
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt::layer())
+        .init();
+}
+
+/// Resolve on Ctrl-C (and SIGTERM on Unix) so in-flight requests finish and
+/// resources drain cleanly — no leaked handles.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        if let Ok(mut sig) =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        {
+            sig.recv().await;
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("shutdown signal received");
+}

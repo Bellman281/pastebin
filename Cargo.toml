@@ -3,7 +3,7 @@
 # `pastebin-service` joins this list once it has its own Cargo.toml (its PR #1).
 [workspace]
 resolver = "2"
-members = ["url-shortener"]
+members = ["url-shortener", "pastebin-service"]
 
 # Build profiles must live at the workspace root (Cargo ignores them in members).
 # Panic strategy is left at the default (unwind) so a panicking handler fails
