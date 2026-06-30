@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zero-Knowledge Pastebin</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.4; }
+    h1 { font-size: 1.4rem; }
+    textarea { width: 100%; min-height: 12rem; font-family: ui-monospace, monospace; box-sizing: border-box; }
+    .row { margin: .6rem 0; }
+    .hidden { display: none; }
+    #link a { word-break: break-all; }
+    pre { background: #f5f5f5; padding: 1rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    .muted { color: #666; font-size: .85rem; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Zero-Knowledge Pastebin</h1>
+  <p class="muted">
+    Text is encrypted in your browser with AES-256-GCM. The decryption key lives
+    in the link's <code>#fragment</code> and is never sent to the server, so the
+    server only ever stores ciphertext.
+  </p>
+
+  <section id="create">
+    <div class="row">
+      <textarea id="content" placeholder="Paste your text here…"></textarea>
+    </div>
+    <div class="row">
+      <label>Expiry:
+        <select id="ttl">
+          <option value="">never</option>
+          <option value="3600">1 hour</option>
+          <option value="86400">1 day</option>
+          <option value="604800">1 week</option>
+        </select>
+      </label>
+      &nbsp;
+      <label><input type="checkbox" id="oneshot"> burn after reading</label>
+    </div>
+    <div class="row">
+      <button id="createBtn" type="button">Encrypt &amp; create</button>
+    </div>
+    <div class="row hidden" id="result">
+      <strong>Share this link</strong> (keep the part after <code>#</code> secret):
+      <div id="link"></div>
+    </div>
+  </section>
+
+  <section id="view" class="hidden">
+    <div id="error" class="row" style="color:#b00000"></div>
+    <pre id="output"></pre>
+    <p class="muted">Decrypted locally in your browser.</p>
+    <p class="row"><a href="/">Create a new paste</a></p>
+  </section>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

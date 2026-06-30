@@ -12,7 +12,7 @@ use axum::body::Body;
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Path, Request, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,12 @@ use crate::application::ServiceError;
 use crate::domain::Paste;
 use crate::error::AppError;
 use crate::AppState;
+
+/// The zero-knowledge web client, embedded at compile time. The server serves
+/// these assets but never sees plaintext or keys — all crypto happens in the
+/// browser and the key travels only in the URL fragment.
+const INDEX_HTML: &str = include_str!("../../static/index.html");
+const APP_JS: &str = include_str!("../../static/app.js");
 
 /// Bridge application errors to HTTP. The only place that knows both vocabularies.
 impl From<ServiceError> for AppError {
@@ -57,6 +63,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .layer(DefaultBodyLimit::max(body_limit));
 
     Router::new()
+        .route("/", get(index))
+        .route("/app.js", get(app_js))
         .route("/health", get(health))
         .route("/health/ready", get(ready))
         .route("/api/pastes", post(create_paste))
@@ -160,6 +168,21 @@ impl PasteResponse {
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
+
+/// Serve the zero-knowledge web client (the SPA reads `#<id>.<key>` itself).
+async fn index() -> Html<&'static str> {
+    Html(INDEX_HTML)
+}
+
+/// Serve the client script with a JavaScript content type.
+async fn app_js() -> Response {
+    let mut response = Response::new(Body::from(APP_JS));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/javascript; charset=utf-8"),
+    );
+    response
+}
 
 /// Liveness probe — cheap, no dependencies.
 async fn health() -> Json<serde_json::Value> {

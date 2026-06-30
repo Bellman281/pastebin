@@ -9,6 +9,18 @@ them back by id, with planned expiry (TTL), burn-after-read, and size limits.
 > per-PR test cases: [`../docs/PR_PLAN_pastebin.md`](../docs/PR_PLAN_pastebin.md).
 > Architecture: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
+## Zero-knowledge web client
+
+The server also serves a tiny browser client (`GET /`, `GET /app.js`) that
+encrypts and decrypts **in the browser** with AES-256-GCM (WebCrypto). The
+random key is base64url-encoded into the link's `#fragment`, which browsers
+never send to the server — so the server only ever stores ciphertext and has
+**zero knowledge** of the plaintext or key. Burn-after-read and TTL apply as
+usual. Share links look like `https://host/#<id>.<key>`.
+
+Limitations to know: you must trust the server to serve honest JS; there's no
+password/PBKDF2 layer (the key is the URL fragment); use HTTPS in production.
+
 ## Planned endpoints
 
 | Method | Path | Purpose |
