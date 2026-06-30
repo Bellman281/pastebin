@@ -20,19 +20,25 @@ use axum::Router;
 pub use config::Config;
 pub use error::AppError;
 
+use application::PasteService;
+use domain::PasteRepository;
+
 /// Shared, read-only application state injected into every handler.
+///
+/// Held behind an `Arc` by the router; `PasteService` only holds an `Arc` to the
+/// repository, so the whole state is cheap to share.
 pub struct AppState {
     pub config: Config,
+    pub service: PasteService,
 }
 
-impl AppState {
-    pub fn new(config: Config) -> Self {
-        Self { config }
-    }
-}
-
-/// Build the fully wired Axum application from configuration.
-pub fn build_app(config: Config) -> Router {
-    let state = Arc::new(AppState::new(config));
+/// Build the fully wired Axum application from configuration and a repository.
+///
+/// The repository is injected as `Arc<dyn PasteRepository>` (Dependency
+/// Inversion): production passes the SQLite adapter, tests pass the in-memory
+/// double — neither this function nor the handlers change.
+pub fn build_app(config: Config, repo: Arc<dyn PasteRepository>) -> Router {
+    let service = PasteService::new(repo);
+    let state = Arc::new(AppState { config, service });
     api::router(state)
 }

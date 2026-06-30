@@ -1,8 +1,6 @@
 //! Strongly-typed configuration loaded from the environment.
 //!
-//! Read once at startup and injected (never a global). Grows per PR: the SQLite
-//! URL/pool size arrive with the storage adapter, the content size limit with
-//! the domain.
+//! Read once at startup and injected (never a global).
 
 use std::net::SocketAddr;
 
@@ -13,6 +11,12 @@ pub struct Config {
     pub bind_addr: SocketAddr,
     /// Maximum accepted request body size, in bytes.
     pub max_body_bytes: usize,
+    /// sqlx connection URL (e.g. `sqlite://pastes.db`).
+    pub database_url: String,
+    /// Upper bound on pooled DB connections — caps connection memory under load.
+    pub database_max_connections: u32,
+    /// Base URL used to build the paste URL returned to clients.
+    pub public_base_url: String,
 }
 
 impl Config {
@@ -28,7 +32,21 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("MAX_BODY_BYTES"))?;
 
-        Ok(Self { bind_addr, max_body_bytes })
+        let database_url = env_or("DATABASE_URL", "sqlite://pastes.db");
+
+        let database_max_connections = env_or("DATABASE_MAX_CONNECTIONS", "5")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("DATABASE_MAX_CONNECTIONS"))?;
+
+        let public_base_url = env_or("PUBLIC_BASE_URL", "http://127.0.0.1:8090");
+
+        Ok(Self {
+            bind_addr,
+            max_body_bytes,
+            database_url,
+            database_max_connections,
+            public_base_url,
+        })
     }
 }
 

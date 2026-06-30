@@ -3,10 +3,13 @@
 #![forbid(unsafe_code)]
 
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use tokio::net::TcpListener;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+use pastebin_service::domain::PasteRepository;
+use pastebin_service::infrastructure::SqlitePasteRepository;
 use pastebin_service::{build_app, Config};
 
 #[tokio::main]
@@ -26,7 +29,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = Config::from_env()?;
     let bind_addr = config.bind_addr;
 
-    let app = build_app(config);
+    let repo: Arc<dyn PasteRepository> = Arc::new(
+        SqlitePasteRepository::connect(&config.database_url, config.database_max_connections)
+            .await?,
+    );
+
+    let app = build_app(config, repo);
 
     let listener = TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "pastebin-service listening");
