@@ -6,10 +6,10 @@
 
 #![forbid(unsafe_code)]
 
-// Layers are added in their own PRs: `domain` (#2), `application` (#3),
-// `infrastructure` (#4). PR #1 ships only config, error handling, and the API.
+// Layers are added in their own PRs: `application` (#3), `infrastructure` (#4).
 pub mod api;
 pub mod config;
+pub mod domain;
 pub mod error;
 
 use std::sync::Arc;
