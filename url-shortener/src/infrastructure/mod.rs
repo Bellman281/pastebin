@@ -1,7 +1,8 @@
 //! Infrastructure layer: concrete adapters implementing domain ports.
 //!
-//! - [`InMemoryLinkRepository`] — a thread-safe in-memory implementation used
-//!   as a test double and for local runs (PR #3).
+//! - [`InMemoryLinkRepository`] — an actor-based in-memory implementation (a
+//!   task owns the map; callers message it over a channel — no lock) used as a
+//!   test double and for local runs (PR #3).
 //! - `SqliteLinkRepository` — the production sqlx adapter (PR #4).
 
 mod memory;
