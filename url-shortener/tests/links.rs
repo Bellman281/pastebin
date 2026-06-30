@@ -44,7 +44,13 @@ async fn send(app: &Router, request: Request<Body>) -> (StatusCode, Vec<u8>) {
         .get(header::LOCATION)
         .and_then(|v| v.to_str().ok())
         .map(str::to_owned);
-    let bytes = response.into_body().collect().await.unwrap().to_bytes().to_vec();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
     // Stash the Location header (if any) as the first "line" for redirect tests.
     if let Some(loc) = location {
         return (status, format!("LOCATION:{loc}").into_bytes());
@@ -84,7 +90,10 @@ async fn create_with_alias_then_full_lifecycle() {
     // Create with a custom alias.
     let (status, body) = send(
         &app,
-        post_json("/api/links", r#"{"url":"https://example.com","alias":"demo"}"#),
+        post_json(
+            "/api/links",
+            r#"{"url":"https://example.com","alias":"demo"}"#,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);
@@ -101,7 +110,10 @@ async fn create_with_alias_then_full_lifecycle() {
     // Redirect: 302 with Location, and the hit is counted.
     let (status, body) = send(&app, get("/demo")).await;
     assert_eq!(status, StatusCode::FOUND);
-    assert_eq!(String::from_utf8(body).unwrap(), "LOCATION:https://example.com");
+    assert_eq!(
+        String::from_utf8(body).unwrap(),
+        "LOCATION:https://example.com"
+    );
 
     let (_, body) = send(&app, get("/api/links/demo")).await;
     assert_eq!(json(&body)["hits"], 1);
@@ -114,9 +126,39 @@ async fn create_with_alias_then_full_lifecycle() {
 }
 
 #[tokio::test]
+async fn metrics_counts_served_redirects() {
+    let app = app();
+
+    // Zero redirects before any traffic.
+    let (status, body) = send(&app, get("/metrics")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json(&body)["redirects"], 0);
+
+    send(
+        &app,
+        post_json(
+            "/api/links",
+            r#"{"url":"https://example.com","alias":"m1"}"#,
+        ),
+    )
+    .await;
+
+    // Two redirects -> the lock-free counter reads 2.
+    assert_eq!(send(&app, get("/m1")).await.0, StatusCode::FOUND);
+    assert_eq!(send(&app, get("/m1")).await.0, StatusCode::FOUND);
+
+    let (_, body) = send(&app, get("/metrics")).await;
+    assert_eq!(json(&body)["redirects"], 2);
+}
+
+#[tokio::test]
 async fn create_without_alias_generates_code() {
     let app = app();
-    let (status, body) = send(&app, post_json("/api/links", r#"{"url":"https://example.com"}"#)).await;
+    let (status, body) = send(
+        &app,
+        post_json("/api/links", r#"{"url":"https://example.com"}"#),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     let code = json(&body)["code"].as_str().unwrap().to_owned();
     assert_eq!(code.len(), 7);
@@ -133,8 +175,16 @@ async fn invalid_url_is_rejected() {
 #[tokio::test]
 async fn duplicate_alias_conflicts() {
     let app = app();
-    send(&app, post_json("/api/links", r#"{"url":"https://a.com","alias":"dup"}"#)).await;
-    let (status, _) = send(&app, post_json("/api/links", r#"{"url":"https://b.com","alias":"dup"}"#)).await;
+    send(
+        &app,
+        post_json("/api/links", r#"{"url":"https://a.com","alias":"dup"}"#),
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        post_json("/api/links", r#"{"url":"https://b.com","alias":"dup"}"#),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
 }
 
@@ -157,7 +207,10 @@ async fn create_with_ttl_sets_expiry_and_still_resolves() {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);
-    assert!(json(&body)["expires_at"].is_i64(), "expires_at should be set");
+    assert!(
+        json(&body)["expires_at"].is_i64(),
+        "expires_at should be set"
+    );
 
     // Not expired yet → still redirects.
     let (status, _) = send(&app, get("/ttl")).await;

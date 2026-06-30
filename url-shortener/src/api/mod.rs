@@ -67,12 +67,16 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/health/ready", get(ready))
+        .route("/metrics", get(metrics))
         .route("/api/links", post(create_link))
         .route("/api/links/:code", get(get_link).delete(delete_link))
         .route("/:code", get(redirect))
         .layer(middleware)
         // Outermost so abusive clients are rejected before any work is done.
-        .layer(axum::middleware::from_fn_with_state(state.clone(), rate_limit))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit,
+        ))
         .with_state(state)
 }
 
@@ -170,12 +174,21 @@ async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
+/// `GET /metrics` — process-wide, lock-free counters (read with an atomic load).
+async fn metrics(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "redirects": state.metrics.redirects() }))
+}
+
 /// Readiness probe — "can this instance serve traffic right now?" Checks the
 /// backing store. Returns `503` (not `500`) when the DB is unreachable so a load
 /// balancer takes the instance out of rotation instead of treating it as dead.
 async fn ready(State(state): State<Arc<AppState>>) -> Response {
     match state.service.ready().await {
-        Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "status": "ready" }))).into_response(),
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "ready" })),
+        )
+            .into_response(),
         Err(_) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({ "status": "unavailable" })),
@@ -189,7 +202,10 @@ async fn create_link(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateLinkRequest>,
 ) -> Result<(StatusCode, Json<CreateLinkResponse>), AppError> {
-    let link = state.service.create(req.url, req.alias, req.ttl_seconds).await?;
+    let link = state
+        .service
+        .create(req.url, req.alias, req.ttl_seconds)
+        .await?;
     let body = CreateLinkResponse::from_link(&link, &state.config.public_base_url);
     Ok((StatusCode::CREATED, Json(body)))
 }
@@ -200,6 +216,7 @@ async fn redirect(
     Path(code): Path<String>,
 ) -> Result<Response, AppError> {
     let target = state.service.resolve(code).await?;
+    state.metrics.record_redirect(); // lock-free atomic bump
     let location =
         HeaderValue::from_str(target.as_str()).map_err(|e| AppError::Internal(Box::new(e)))?;
 

@@ -14,6 +14,7 @@ pub mod domain;
 pub mod error;
 pub mod hits;
 pub mod infrastructure;
+pub mod metrics;
 pub mod rate_limit;
 
 use std::sync::Arc;
@@ -27,6 +28,7 @@ use application::LinkService;
 use cache::{Cache, NoOpCache};
 use domain::LinkRepository;
 use hits::HitRecorder;
+use metrics::Metrics;
 use rate_limit::RateLimiter;
 
 /// Shared, read-only application state injected into every handler.
@@ -38,6 +40,8 @@ pub struct AppState {
     pub config: Config,
     pub service: LinkService,
     pub rate_limiter: RateLimiter,
+    /// Lock-free process-wide counters (e.g. redirects served).
+    pub metrics: Metrics,
 }
 
 /// Build the fully wired Axum application from configuration and a repository.
@@ -57,7 +61,12 @@ pub fn build_app_with_cache(
 ) -> Router {
     let rate_limiter = RateLimiter::new(config.rate_limit_rps, config.rate_limit_burst);
     let service = LinkService::with_cache(repo, config.blocked_hosts.clone(), cache);
-    let state = Arc::new(AppState { config, service, rate_limiter });
+    let state = Arc::new(AppState {
+        config,
+        service,
+        rate_limiter,
+        metrics: Metrics::default(),
+    });
     api::router(state)
 }
 
@@ -72,6 +81,11 @@ pub fn build_app_with_cache_and_hits(
 ) -> Router {
     let rate_limiter = RateLimiter::new(config.rate_limit_rps, config.rate_limit_burst);
     let service = LinkService::with_cache_and_hits(repo, config.blocked_hosts.clone(), cache, hits);
-    let state = Arc::new(AppState { config, service, rate_limiter });
+    let state = Arc::new(AppState {
+        config,
+        service,
+        rate_limiter,
+        metrics: Metrics::default(),
+    });
     api::router(state)
 }
