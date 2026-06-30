@@ -1,60 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 600" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 660" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
   <defs>
     <style>
-      .muted { fill: #6b7280; }
-      .label { fill: #374151; }
+      .muted { fill: #6b7280; } .label { fill: #374151; }
       .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     </style>
   </defs>
 
-  <!-- page backdrop -->
-  <rect width="760" height="600" fill="#eef1f5"/>
-
+  <rect width="760" height="660" fill="#eef1f5"/>
   <!-- browser window -->
-  <rect x="24" y="20" width="712" height="560" rx="12" fill="#ffffff" stroke="#d1d5db"/>
-  <!-- title bar -->
+  <rect x="24" y="20" width="712" height="620" rx="12" fill="#ffffff" stroke="#d1d5db"/>
   <rect x="24" y="20" width="712" height="44" rx="12" fill="#f3f4f6"/>
   <rect x="24" y="52" width="712" height="12" fill="#f3f4f6"/>
-  <circle cx="48" cy="42" r="6" fill="#ef6a5e"/>
-  <circle cx="68" cy="42" r="6" fill="#f5bf4f"/>
-  <circle cx="88" cy="42" r="6" fill="#61c554"/>
-  <!-- address bar -->
+  <circle cx="48" cy="42" r="6" fill="#ef6a5e"/><circle cx="68" cy="42" r="6" fill="#f5bf4f"/><circle cx="88" cy="42" r="6" fill="#61c554"/>
   <rect x="120" y="30" width="592" height="24" rx="12" fill="#ffffff" stroke="#d1d5db"/>
   <text x="136" y="46" class="mono" font-size="12" fill="#6b7280">https://paste.example/</text>
 
-  <!-- content -->
+  <!-- header: title + language + theme -->
   <text x="56" y="104" font-size="22" font-weight="700" fill="#111827">Zero-Knowledge Pastebin</text>
-  <text x="56" y="130" class="muted" font-size="13">Text is encrypted in your browser with AES-256-GCM. The decryption key lives in the</text>
-  <text x="56" y="148" class="muted" font-size="13">link's #fragment and is never sent to the server — it only ever stores ciphertext.</text>
+  <rect x="556" y="88" width="104" height="24" rx="5" fill="#fff" stroke="#d1d5db"/>
+  <text x="568" y="105" font-size="12.5" fill="#374151">English</text><text x="646" y="105" class="muted" font-size="11">▾</text>
+  <rect x="668" y="88" width="36" height="24" rx="5" fill="#fff" stroke="#d1d5db"/>
+  <text x="686" y="106" font-size="14" text-anchor="middle">🌓</text>
+
+  <text x="56" y="128" class="muted" font-size="12.5">Encrypted in your browser with AES-256-GCM. The key lives in the link's #fragment and is never sent.</text>
 
   <!-- textarea -->
-  <rect x="56" y="166" width="648" height="150" rx="6" fill="#fbfbfd" stroke="#d1d5db"/>
-  <text x="70" y="190" class="mono" font-size="12.5" fill="#374151">-----BEGIN OPENSSH PRIVATE KEY-----</text>
-  <text x="70" y="210" class="mono" font-size="12.5" fill="#374151">b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAAB…</text>
-  <text x="70" y="236" class="mono" font-size="12.5" fill="#9ca3af">(this is encrypted in-page before anything is sent)</text>
+  <rect x="56" y="144" width="648" height="138" rx="6" fill="#fbfbfd" stroke="#d1d5db"/>
+  <text x="70" y="168" class="mono" font-size="12.5" fill="#0000ff">let<tspan fill="#374151"> conn = db.connect(</tspan><tspan fill="#a31515">"sqlite://app.db"</tspan><tspan fill="#374151">)?;</tspan></text>
+  <text x="70" y="188" class="mono" font-size="12.5" fill="#6a9955">// secret config — encrypted before it leaves the browser</text>
+  <text x="70" y="208" class="mono" font-size="12.5" fill="#374151">timeout = <tspan fill="#098658">30</tspan></text>
 
-  <!-- options row -->
+  <!-- language -->
+  <text x="56" y="312" class="label" font-size="13">Language:</text>
+  <rect x="124" y="298" width="110" height="24" rx="5" fill="#fff" stroke="#d1d5db"/>
+  <text x="136" y="315" font-size="12.5" fill="#374151">Rust</text><text x="220" y="315" class="muted" font-size="11">▾</text>
+
+  <!-- expiry + burn -->
   <text x="56" y="350" class="label" font-size="13">Expiry:</text>
-  <rect x="110" y="336" width="110" height="24" rx="5" fill="#ffffff" stroke="#d1d5db"/>
-  <text x="122" y="353" font-size="12.5" fill="#374151">1 day</text>
-  <text x="206" y="353" class="muted" font-size="11">▾</text>
-  <rect x="252" y="341" width="14" height="14" rx="3" fill="#ffffff" stroke="#9ca3af"/>
-  <path d="M255 348 l3 3 l5 -6" fill="none" stroke="#2563eb" stroke-width="2"/>
-  <text x="274" y="353" class="label" font-size="13">burn after reading</text>
+  <rect x="110" y="336" width="96" height="24" rx="5" fill="#fff" stroke="#d1d5db"/>
+  <text x="122" y="353" font-size="12.5" fill="#374151">1 day</text><text x="192" y="353" class="muted" font-size="11">▾</text>
+  <rect x="238" y="341" width="14" height="14" rx="3" fill="#fff" stroke="#9ca3af"/>
+  <path d="M241 348 l3 3 l5 -6" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <text x="260" y="353" class="label" font-size="13">burn after reading</text>
 
-  <!-- password row -->
+  <!-- password -->
   <text x="56" y="392" class="label" font-size="13">Password (optional):</text>
-  <rect x="190" y="378" width="220" height="24" rx="5" fill="#ffffff" stroke="#d1d5db"/>
-  <text x="202" y="395" class="mono" font-size="13" fill="#374151">••••••••••••</text>
-  <text x="56" y="414" class="muted" font-size="11">If set, required in addition to the link — share it separately.</text>
+  <rect x="190" y="378" width="200" height="24" rx="5" fill="#fff" stroke="#d1d5db"/>
+  <text x="202" y="395" class="mono" font-size="13" fill="#374151">••••••••••</text>
 
   <!-- button -->
-  <rect x="56" y="436" width="168" height="38" rx="6" fill="#2563eb"/>
-  <text x="140" y="460" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Encrypt &amp; create</text>
+  <rect x="56" y="420" width="168" height="38" rx="6" fill="#2563eb"/>
+  <text x="140" y="444" font-size="14" font-weight="600" fill="#fff" text-anchor="middle">Encrypt &amp; create</text>
 
-  <!-- result -->
-  <rect x="56" y="492" width="648" height="74" rx="6" fill="#f0fdf4" stroke="#86efac"/>
-  <text x="70" y="514" class="label" font-size="12.5" font-weight="600">Share this link (keep the part after # secret):</text>
-  <text x="70" y="536" class="mono" font-size="12" fill="#2563eb">https://paste.example/#QnsFVpLI.XkdybHPgx3BqDRdlnwAkFodQsfW11s9z2Xmz…</text>
-  <text x="70" y="556" class="muted" font-size="11">Password-protected — share the password separately.</text>
+  <!-- result with QR -->
+  <rect x="56" y="476" width="648" height="150" rx="6" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="70" y="500" class="label" font-size="12.5" font-weight="600">Share this link (keep the part after # secret):</text>
+  <text x="70" y="522" class="mono" font-size="11.5" fill="#2563eb">https://paste.example/#QnsFVpLI.XkdybHPgx3BqDRdlnwAkFodQsfW11s9z…</text>
+  <!-- mock QR -->
+  <g transform="translate(70,536)">
+    <rect width="76" height="76" fill="#ffffff" stroke="#d1d5db"/>
+    <g fill="#111827">
+      <rect x="6" y="6" width="20" height="20"/><rect x="10" y="10" width="12" height="12" fill="#fff"/><rect x="13" y="13" width="6" height="6" fill="#111827"/>
+      <rect x="50" y="6" width="20" height="20"/><rect x="54" y="10" width="12" height="12" fill="#fff"/><rect x="57" y="13" width="6" height="6" fill="#111827"/>
+      <rect x="6" y="50" width="20" height="20"/><rect x="10" y="54" width="12" height="12" fill="#fff"/><rect x="13" y="57" width="6" height="6" fill="#111827"/>
+      <rect x="32" y="8" width="4" height="4"/><rect x="40" y="8" width="4" height="4"/><rect x="32" y="16" width="4" height="4"/><rect x="36" y="24" width="4" height="4"/>
+      <rect x="50" y="34" width="4" height="4"/><rect x="58" y="34" width="4" height="4"/><rect x="66" y="38" width="4" height="4"/><rect x="34" y="34" width="4" height="4"/>
+      <rect x="34" y="50" width="4" height="4"/><rect x="42" y="54" width="4" height="4"/><rect x="50" y="58" width="4" height="4"/><rect x="58" y="62" width="4" height="4"/><rect x="66" y="50" width="4" height="4"/>
+      <rect x="8" y="34" width="4" height="4"/><rect x="16" y="34" width="4" height="4"/><rect x="24" y="40" width="4" height="4"/>
+    </g>
+  </g>
+  <text x="160" y="560" class="muted" font-size="11.5">Scan to open on a phone.</text>
+  <text x="160" y="580" class="muted" font-size="11.5">QR is built in the browser — the key never</text>
+  <text x="160" y="596" class="muted" font-size="11.5">leaves the page.</text>
 </svg>

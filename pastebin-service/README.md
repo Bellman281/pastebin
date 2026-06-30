@@ -75,7 +75,33 @@ optional password, TTL, burn-after-read), the web client also offers:
 Out of scope for this minimalist tool: file upload, comments/discussions, and
 extra themes/translations.
 
-## Planned endpoints
+## Using the web client
+
+Open the service root in a browser (`http://127.0.0.1:8090/`) and:
+
+1. **Write** — type or paste your text. Optionally pick a **Language** (for
+   syntax highlighting), an **Expiry**, **burn after reading**, and a
+   **Password**.
+2. **Create** — click **Encrypt & create**. The text is encrypted in your
+   browser; you get a share link and a **QR code**.
+3. **Share** — the link looks like `https://host/#<id>.<key>`. Everything after
+   `#` is the secret key — anyone with the full link can read the paste, so share
+   it privately. If you set a password, share that **separately** (it's never in
+   the link). Scan the QR to open on a phone.
+4. **View** — opening the link decrypts the paste in the browser and shows it
+   (highlighted, if a language was chosen). Password-protected pastes prompt for
+   the password.
+5. **Preferences** — the **🌓** button toggles dark/light (remembered); the
+   language dropdown switches the UI language (auto-detected from your browser:
+   English, Spanish, French, German).
+
+![Decrypted paste with syntax highlighting (dark theme)](docs/img/view.svg)
+
+For programmatic / non-browser use, hit the JSON API directly (see *Run* above) —
+the server stores whatever opaque content you send, so the zero-knowledge
+guarantee is entirely a property of the browser client.
+
+## API endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
