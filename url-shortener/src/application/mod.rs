@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::Rng;
 
+use crate::cache::{Cache, NoOpCache};
 use crate::domain::{
     BoxedError, Link, LinkRepository, RepoError, ShortCode, TargetUrl, ValidationError,
 };
@@ -17,6 +18,8 @@ use crate::domain::{
 const GENERATED_CODE_LEN: usize = 7;
 /// How many times to retry generation on a (rare) collision before giving up.
 const MAX_GENERATION_ATTEMPTS: usize = 5;
+/// Upper bound on how long a `code -> target` mapping is cached (seconds).
+const MAX_CACHE_TTL_SECS: u64 = 300;
 /// Base62 alphabet used for generated codes.
 const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -50,11 +53,23 @@ pub struct LinkService {
     repo: Arc<dyn LinkRepository>,
     /// Hosts (and their subdomains) that may not be shortened. Lowercased.
     blocked_hosts: Vec<String>,
+    /// Read-cache for the hot redirect path (NoOp when disabled).
+    cache: Arc<dyn Cache>,
 }
 
 impl LinkService {
+    /// Construct with caching disabled (NoOp cache).
     pub fn new(repo: Arc<dyn LinkRepository>, blocked_hosts: Vec<String>) -> Self {
-        Self { repo, blocked_hosts }
+        Self::with_cache(repo, blocked_hosts, Arc::new(NoOpCache))
+    }
+
+    /// Construct with an explicit cache implementation.
+    pub fn with_cache(
+        repo: Arc<dyn LinkRepository>,
+        blocked_hosts: Vec<String>,
+        cache: Arc<dyn Cache>,
+    ) -> Self {
+        Self { repo, blocked_hosts, cache }
     }
 
     /// True if `target`'s host is on the denylist (exact host or a subdomain).
@@ -111,10 +126,24 @@ impl LinkService {
     /// exist, so it maps to `NotFound` rather than a validation error.
     pub async fn resolve(&self, code: String) -> Result<TargetUrl, ServiceError> {
         let code = ShortCode::parse(code).map_err(|_| ServiceError::NotFound)?;
+
+        // Cache-aside: a cached entry is a live, non-expired target (we cap the
+        // TTL and invalidate on delete). The hit is still counted best-effort.
+        if let Some(target) = self.cache.get(code.as_str()).await {
+            let _ = self.repo.increment_hits(&code).await;
+            return Ok(TargetUrl::from_trusted(target));
+        }
+
         let link = self.repo.get(&code).await?.ok_or(ServiceError::NotFound)?;
         if link.is_expired(now_unix()) {
             let _ = self.repo.delete(&code).await; // best-effort lazy purge
+            self.cache.delete(code.as_str()).await;
             return Err(ServiceError::NotFound);
+        }
+
+        let ttl = cache_ttl_secs(&link);
+        if ttl > 0 {
+            self.cache.set(code.as_str(), link.target.as_str(), ttl).await;
         }
         self.repo.increment_hits(&code).await?;
         Ok(link.target)
@@ -140,7 +169,9 @@ impl LinkService {
     /// Delete a link, or `NotFound` if it does not exist.
     pub async fn delete(&self, code: String) -> Result<(), ServiceError> {
         let code = ShortCode::parse(code).map_err(|_| ServiceError::NotFound)?;
-        if self.repo.delete(&code).await? {
+        let removed = self.repo.delete(&code).await?;
+        self.cache.delete(code.as_str()).await; // invalidate regardless
+        if removed {
             Ok(())
         } else {
             Err(ServiceError::NotFound)
@@ -157,6 +188,22 @@ fn now_unix() -> i64 {
         .unwrap_or(0)
 }
 
+/// How long to cache a link's target: bounded by `MAX_CACHE_TTL_SECS` and never
+/// beyond the link's own expiry. Returns 0 if already expired (don't cache).
+fn cache_ttl_secs(link: &Link) -> u64 {
+    match link.expires_at {
+        Some(exp) => {
+            let remaining = exp - now_unix();
+            if remaining <= 0 {
+                0
+            } else {
+                (remaining as u64).min(MAX_CACHE_TTL_SECS)
+            }
+        }
+        None => MAX_CACHE_TTL_SECS,
+    }
+}
+
 /// Generate a random base62 code of the given length.
 fn generate_code(len: usize) -> String {
     let mut rng = rand::thread_rng();
@@ -168,10 +215,33 @@ fn generate_code(len: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cache::InMemoryCache;
     use crate::infrastructure::InMemoryLinkRepository;
 
     fn service() -> LinkService {
         LinkService::new(Arc::new(InMemoryLinkRepository::default()), Vec::new())
+    }
+
+    #[tokio::test]
+    async fn resolve_populates_cache_and_delete_invalidates_it() {
+        let repo = Arc::new(InMemoryLinkRepository::default());
+        let cache = Arc::new(InMemoryCache::default());
+        let svc = LinkService::with_cache(repo.clone(), Vec::new(), cache.clone());
+
+        svc.create("https://example.com".to_owned(), Some("xy".to_owned()), None)
+            .await
+            .unwrap();
+
+        // First resolve is a cache miss that populates the cache.
+        assert_eq!(svc.resolve("xy".to_owned()).await.unwrap().as_str(), "https://example.com");
+        assert_eq!(cache.get("xy").await.as_deref(), Some("https://example.com"));
+
+        // A second resolve is served from cache (still returns the right target).
+        assert_eq!(svc.resolve("xy".to_owned()).await.unwrap().as_str(), "https://example.com");
+
+        // Delete invalidates the cache entry.
+        svc.delete("xy".to_owned()).await.unwrap();
+        assert!(cache.get("xy").await.is_none());
     }
 
     #[test]

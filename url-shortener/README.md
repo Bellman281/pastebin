@@ -175,6 +175,12 @@ and returns `503` when it's unreachable, so a load balancer drains the instance.
 bucket; over-limit requests get `429`. It's a *per-instance* limit (each replica
 counts independently); a globally-consistent limit needs a shared store.
 
+**Redis read-cache** (optional): set `REDIS_URL` to cache `code → target` for
+the hot redirect path, so most redirects skip the database. It's transparent and
+best-effort — if Redis is unset or unreachable the app falls back to the DB. The
+cached mapping is immutable for a link's life; entries carry a bounded TTL (≤ the
+link's own expiry) and are invalidated on delete.
+
 ### Smoke test (against a running server)
 
 `scripts/smoke_test.sh` (optional dev tooling — `bash`+`curl`, no extra deps)

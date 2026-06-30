@@ -9,9 +9,10 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+use url_shortener::cache::{Cache, NoOpCache, RedisCache};
 use url_shortener::domain::LinkRepository;
 use url_shortener::infrastructure::SqliteLinkRepository;
-use url_shortener::{build_app, Config};
+use url_shortener::{build_app_with_cache, Config};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -34,7 +35,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         SqliteLinkRepository::connect(&config.database_url, config.database_max_connections).await?,
     );
 
-    let app = build_app(config, repo);
+    let cache = build_cache().await;
+    let app = build_app_with_cache(config, repo, cache);
 
     let listener = TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "url-shortener listening");
@@ -49,6 +51,24 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     .await?;
 
     Ok(())
+}
+
+/// Build the read-cache from `REDIS_URL`. Empty/unset, or a failed connection,
+/// falls back to a no-op cache (the app then reads only from the database).
+async fn build_cache() -> Arc<dyn Cache> {
+    match std::env::var("REDIS_URL") {
+        Ok(url) if !url.is_empty() => match RedisCache::connect(&url).await {
+            Ok(cache) => {
+                tracing::info!("redis cache enabled");
+                Arc::new(cache)
+            }
+            Err(err) => {
+                tracing::warn!(error = %err, "redis unavailable; running without cache");
+                Arc::new(NoOpCache)
+            }
+        },
+        _ => Arc::new(NoOpCache),
+    }
 }
 
 fn init_tracing() {

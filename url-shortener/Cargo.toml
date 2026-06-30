@@ -26,6 +26,8 @@ sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio",
 # Hardening (PR #6): middleware stack.
 tower = { version = "0.4", features = ["limit"] }                       # ConcurrencyLimitLayer + ServiceBuilder
 tower-http = { version = "0.5", features = ["trace", "timeout", "catch-panic"] }
+# Optional Redis read-cache for the hot redirect path.
+redis = { version = "0.27", default-features = false, features = ["tokio-comp", "connection-manager"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "test-util"] }
