@@ -73,12 +73,12 @@ on pool checkout; with SQLite, more write connections don't help anyway (writes
 serialize). On PostgreSQL you'd size the pool to the DB and front it with
 PgBouncer. Either way the default of 5 is a dev value, not a 10M-user value.
 
-## 6. No rate limiting or abuse controls (planned PR #6)
+## 6. Abuse controls
 
-`POST /api/links` is unauthenticated and unthrottled. At scale this invites
-bulk/abusive creation that bloats the DB and can be used for spam/phishing
-redirects. PR #6's concurrency cap helps with load, but you also want per-client
-rate limits, and likely auth/quotas on create.
+`POST /api/links` is unauthenticated. An opt-in per-IP rate limit and a
+concurrency cap exist, but at scale you also want auth/quotas on create and a
+phishing/malware domain blocklist (a host blocklist is already in place), to stop
+bulk/abusive creation from bloating the DB or serving spam redirects.
 
 ## 7. Short-code space & generation (minor at 10M)
 
@@ -90,10 +90,10 @@ regardless.
 
 ## 8. Operational gaps that bite at scale
 
-- `/health` is liveness-only; it doesn't check the DB, so a load balancer can't
-  tell a healthy-but-DB-broken instance from a working one (PR #6 adds readiness).
-- No structured per-request tracing/metrics yet (PR #6) — you'll be blind to
-  latency/error spikes at 10M users.
+- `/health` is liveness-only by design; `/health/ready` adds a DB-backed
+  readiness check so a load balancer can drain a healthy-but-DB-broken instance.
+- Structured per-request tracing exists; scrapeable metrics (e.g. Prometheus)
+  are still missing — you'll want them to see latency/error spikes at 10M users.
 - OS limits (file descriptors, ephemeral ports) and graceful-shutdown draining
   matter once you run many instances; the shutdown path is already in place.
 

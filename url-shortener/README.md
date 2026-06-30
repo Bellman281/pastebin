@@ -11,8 +11,7 @@ business logic is framework- and database-agnostic and fully unit-testable.
 >
 > Status: **complete** — full CRUD + redirect, TTL expiry, host blocklist,
 > hardening middleware, opt-in per-IP rate limiting, and an optional Redis
-> read-cache. Roadmap: [`../docs/PR_PLAN_url_shortener.md`](../docs/PR_PLAN_url_shortener.md) ·
-> Scaling deep-dive: [`../docs/SCALING.md`](../docs/SCALING.md).
+> read-cache. Scaling deep-dive: [`../docs/SCALING.md`](../docs/SCALING.md).
 
 ## Endpoints
 
@@ -162,7 +161,7 @@ interchangeable instances behind a load balancer.
 See [`../docs/SCALING.md`](../docs/SCALING.md) for the full path to ~10M users
 (external cache, channel-batched hit counting, PostgreSQL, horizontal scaling).
 
-## Hardening (PR #6)
+## Hardening
 
 Every request passes through a middleware stack (outer → inner): a
 `tower_http` **TraceLayer** (structured per-request logs — set

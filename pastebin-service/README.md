@@ -10,8 +10,7 @@ size limits, optional per-IP rate limiting, and an optional Redis read-cache.
 > for the shared hexagonal architecture. This service has no shared code or
 > database with the other; it just lives in the same Cargo workspace.
 >
-> Architecture: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) ·
-> Roadmap & per-PR test cases: [`../docs/PR_PLAN_pastebin.md`](../docs/PR_PLAN_pastebin.md).
+> Architecture: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
 ## Zero-knowledge web client
 

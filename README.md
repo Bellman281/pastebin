@@ -130,7 +130,7 @@ The highest-value additions for us are **password protection** (closes the
 ```
 url-shortener/        the URL shortener service (own README, src, migrations, tests)
 pastebin-service/     the pastebin service + zero-knowledge web client (static/)
-docs/                 ARCHITECTURE · DESIGN · SCALING · per-service PR plans
+docs/                 ARCHITECTURE · DESIGN · SCALING
 Dockerfile · docker-compose.yml · .github/workflows/ci.yml
 Cargo.toml            virtual workspace (members = both services)
 ```
