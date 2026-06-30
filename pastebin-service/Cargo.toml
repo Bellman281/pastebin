@@ -32,3 +32,9 @@ redis = { version = "0.27", default-features = false, features = ["tokio-comp", 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "test-util"] }
 tower = { version = "0.4", features = ["util"] }
 http-body-util = "0.1"
+
+# Panic strategy is left at the default (unwind) so a panicking handler fails
+# only that request; tower-http's CatchPanicLayer also maps panics to 500.
+[profile.release]
+lto = "thin"
+codegen-units = 1

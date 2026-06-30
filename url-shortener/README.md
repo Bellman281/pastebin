@@ -11,7 +11,7 @@ business logic is framework- and database-agnostic and fully unit-testable.
 >
 > Status: **complete** — full CRUD + redirect, TTL expiry, host blocklist,
 > hardening middleware, opt-in per-IP rate limiting, and an optional Redis
-> read-cache. Scaling deep-dive: [`../docs/SCALING.md`](../docs/SCALING.md).
+> read-cache. Scaling deep-dive: [`./docs/SCALING.md`](./docs/SCALING.md).
 
 ## Endpoints
 
@@ -102,16 +102,16 @@ and issues the 302. There is no math to "decode" a code.
 > other common approach (collision-free by construction, non-sequential if
 > obfuscated). It mainly pays off at billions of links or when you want
 > minimal-length codes. Trade-offs are documented in
-> [`../docs/DESIGN.md`](../docs/DESIGN.md) §4. We use random because, at this
+> [`./docs/DESIGN.md`](./docs/DESIGN.md) §4. We use random because, at this
 > scale, it is simpler and needs no secret key.
 
 ## Design decisions & FAQ
 
-**Do we cache?** Reads are extremely skewed (a few codes get most hits), so a
-cache is worthwhile — but it belongs in an **external store (Redis)**, not an
-in-process map, so every app instance stays stateless and horizontally
-scalable. The `code → target` mapping is immutable for a link's lifetime, so it
-is safe to cache and only needs invalidation on delete. *(Planned.)*
+**Do we cache?** Reads are extremely skewed (a few codes get most hits), so an
+optional **Redis** read-cache is built in (set `REDIS_URL`): it caches the
+immutable `code → target` mapping, with DB fallback when Redis is absent and
+invalidation on delete. It lives in an external store, not an in-process map, so
+every app instance stays stateless and horizontally scalable.
 
 **Why random codes instead of a sequential counter?** Generated codes are random
 7-char base62. A sequential counter would be shorter but (1) **enumerable** —
@@ -158,7 +158,7 @@ ownership of an immutable handle*, not shared mutable state — so there are no
 locks on the production request path. This is precisely what lets you run many
 interchangeable instances behind a load balancer.
 
-See [`../docs/SCALING.md`](../docs/SCALING.md) for the full path to ~10M users
+See [`./docs/SCALING.md`](./docs/SCALING.md) for the full path to ~10M users
 (external cache, channel-batched hit counting, PostgreSQL, horizontal scaling).
 
 ## Hardening
@@ -220,8 +220,7 @@ curl -X DELETE http://127.0.0.1:8080/api/links/9KGJ8rw   # 204
 
 ## Run with Docker
 
-The Docker build context is the **repository root** (it's a Cargo workspace), so
-run these from the repo root, not from `url-shortener/`:
+Everything is self-contained in this folder — run from here:
 
 ```bash
 docker compose up --build

@@ -7,10 +7,11 @@ size limits, optional per-IP rate limiting, and an optional Redis read-cache.
 
 > **One of two independent services in this repo** — see the
 > [repository README](../README.md) for how it relates to the URL shortener and
-> for the shared hexagonal architecture. This service has no shared code or
-> database with the other; it just lives in the same Cargo workspace.
+> for the shared hexagonal architecture. This service has **no shared code or
+> database** with the other and **no Cargo workspace** linking them — it is a
+> standalone crate that builds and runs on its own.
 >
-> Architecture: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
+> Architecture: [`./docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ## Zero-knowledge web client
 
@@ -49,10 +50,10 @@ How it works:
   privately.
 - ⚠️ **Access logs** can reveal *who* fetched a paste (not *what*).
 
-This is the same model as [PrivateBin](https://github.com/PrivateBin/PrivateBin);
-see the [repository README](../README.md#ideas-borrowed-from--inspired-by-privatebin)
-for a feature comparison and roadmap (the top items being **password protection**
-and **client-side syntax highlighting**).
+This is the same model as [PrivateBin](https://github.com/PrivateBin/PrivateBin).
+We already match its core security model (client-side AES-256-GCM, key in the URL
+fragment, optional password, TTL, burn-after-read). Remaining roadmap items are
+**client-side syntax highlighting** and a **QR code** for share links.
 
 ## Planned endpoints
 
@@ -115,4 +116,5 @@ cargo fmt --check
 ```
 
 `#![forbid(unsafe_code)]`; config injected (no globals); request bodies size
-limited; graceful shutdown. Part of the repo-root Cargo workspace.
+limited; graceful shutdown. A standalone Cargo project — build, test, and run
+entirely from this folder.

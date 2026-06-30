@@ -1,0 +1,20 @@
+services:
+  pastebin-service:
+    build: .
+    image: pastebin-service:latest
+    ports:
+      - "8090:8090"
+    environment:
+      PUBLIC_BASE_URL: http://localhost:8090
+      RUST_LOG: info
+    volumes:
+      - pastedata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pastedata:

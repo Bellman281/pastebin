@@ -8,26 +8,32 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Each service is built and tested independently in its own folder, so the two
+# projects stay decoupled. (GitHub only reads workflow files from the repo root,
+# so this single file is necessarily shared; everything else lives per-folder.)
+# To drop a service, remove it from the matrix.
 jobs:
   check:
-    name: fmt · clippy · test
+    name: ${{ matrix.service }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [url-shortener, pastebin-service]
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      - name: Cache cargo build
-        uses: Swatinem/rust-cache@v2
-
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.service }}
       - name: Format check
         run: cargo fmt --all -- --check
-
       - name: Clippy (deny warnings)
         run: cargo clippy --all-targets -- -D warnings
-
       - name: Tests
-        run: cargo test --all
+        run: cargo test
