@@ -170,6 +170,11 @@ Liveness vs readiness are split deliberately: `/health` is dependency-free (so a
 DB blip never restarts a healthy pod), while `/health/ready` checks the store
 and returns `503` when it's unreachable, so a load balancer drains the instance.
 
+**Per-IP rate limiting** (opt-in): set `RATE_LIMIT_RPS` > 0 (with optional
+`RATE_LIMIT_BURST`) to cap requests per client IP via an in-process token
+bucket; over-limit requests get `429`. It's a *per-instance* limit (each replica
+counts independently); a globally-consistent limit needs a shared store.
+
 ### Smoke test (against a running server)
 
 `scripts/smoke_test.sh` (optional dev tooling — `bash`+`curl`, no extra deps)

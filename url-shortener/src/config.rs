@@ -24,6 +24,10 @@ pub struct Config {
     pub max_concurrent_requests: usize,
     /// Hosts (and their subdomains) that may not be shortened. Lowercased.
     pub blocked_hosts: Vec<String>,
+    /// Per-IP rate limit in requests/second. `0` disables rate limiting.
+    pub rate_limit_rps: u32,
+    /// Per-IP burst capacity. When `0` and `rate_limit_rps > 0`, defaults to rps.
+    pub rate_limit_burst: u32,
 }
 
 impl Config {
@@ -62,6 +66,14 @@ impl Config {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let rate_limit_rps = env_or("RATE_LIMIT_RPS", "0")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RATE_LIMIT_RPS"))?;
+
+        let rate_limit_burst = env_or("RATE_LIMIT_BURST", "0")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RATE_LIMIT_BURST"))?;
+
         Ok(Self {
             bind_addr,
             max_body_bytes,
@@ -71,6 +83,8 @@ impl Config {
             request_timeout_secs,
             max_concurrent_requests,
             blocked_hosts,
+            rate_limit_rps,
+            rate_limit_burst,
         })
     }
 }

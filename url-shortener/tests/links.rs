@@ -24,6 +24,8 @@ fn config() -> Config {
         request_timeout_secs: 10,
         max_concurrent_requests: 1024,
         blocked_hosts: Vec::new(),
+        rate_limit_rps: 0,
+        rate_limit_burst: 0,
     }
 }
 

@@ -5,12 +5,14 @@
 //! to a status code), and `ServiceError` is mapped to `AppError` here — the
 //! only layer that knows about both HTTP and the application.
 
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::Body;
-use axum::extract::{DefaultBodyLimit, Path, State};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Path, Request, State};
 use axum::http::{header, HeaderValue, StatusCode};
+use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -69,7 +71,32 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/links/:code", get(get_link).delete(delete_link))
         .route("/:code", get(redirect))
         .layer(middleware)
+        // Outermost so abusive clients are rejected before any work is done.
+        .layer(axum::middleware::from_fn_with_state(state.clone(), rate_limit))
         .with_state(state)
+}
+
+/// Per-IP rate-limit middleware. Rejects with `429` when the client's bucket is
+/// empty. Falls back to an unspecified IP when peer info is absent (e.g. when
+/// the app is driven directly in tests without `ConnectInfo`).
+async fn rate_limit(
+    State(state): State<Arc<AppState>>,
+    conn: Option<ConnectInfo<SocketAddr>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let ip = conn
+        .map(|c| c.0.ip())
+        .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+    if state.rate_limiter.check(ip) {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({ "error": "rate limit exceeded" })),
+        )
+            .into_response()
+    }
 }
 
 // ---------------------------------------------------------------------------

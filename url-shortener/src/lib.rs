@@ -12,6 +12,7 @@ pub mod config;
 pub mod domain;
 pub mod error;
 pub mod infrastructure;
+pub mod rate_limit;
 
 use std::sync::Arc;
 
@@ -22,6 +23,7 @@ pub use error::AppError;
 
 use application::LinkService;
 use domain::LinkRepository;
+use rate_limit::RateLimiter;
 
 /// Shared, read-only application state injected into every handler.
 ///
@@ -31,6 +33,7 @@ use domain::LinkRepository;
 pub struct AppState {
     pub config: Config,
     pub service: LinkService,
+    pub rate_limiter: RateLimiter,
 }
 
 /// Build the fully wired Axum application from configuration and a repository.
@@ -39,7 +42,8 @@ pub struct AppState {
 /// Inversion): production passes the SQLite adapter, tests pass the in-memory
 /// double — neither this function nor the handlers change.
 pub fn build_app(config: Config, repo: Arc<dyn LinkRepository>) -> Router {
+    let rate_limiter = RateLimiter::new(config.rate_limit_rps, config.rate_limit_burst);
     let service = LinkService::new(repo, config.blocked_hosts.clone());
-    let state = Arc::new(AppState { config, service });
+    let state = Arc::new(AppState { config, service, rate_limiter });
     api::router(state)
 }

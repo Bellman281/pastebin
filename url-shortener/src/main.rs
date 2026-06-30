@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -38,9 +39,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listener = TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "url-shortener listening");
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    // `into_make_service_with_connect_info` exposes the peer address to the
+    // rate-limit middleware so it can key buckets by client IP.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
 
     Ok(())
 }
