@@ -1,0 +1,6 @@
+# Build artifacts.
+/target
+**/*.rs.bk
+
+# Local env file.
+.env

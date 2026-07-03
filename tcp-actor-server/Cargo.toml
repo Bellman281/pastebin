@@ -1,0 +1,24 @@
+[package]
+name = "tcp-actor-server"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A non-blocking TCP/HTTP server on Tokio using the actor model (lean, no unsafe)."
+license = "MIT"
+
+# Lean by design: the whole server is built from Tokio + std. No DashMap/scc/
+# crossbeam — shared state is either an owning actor task or a lock-free atomic.
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+thiserror = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "test-util"] }
+
+# A panicking connection handler must take down only its own task, not the
+# server, so keep the default unwinding panic strategy.
+[profile.release]
+lto = "thin"
+codegen-units = 1
