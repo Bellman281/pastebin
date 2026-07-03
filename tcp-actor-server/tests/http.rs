@@ -159,7 +159,10 @@ async fn slow_loris_request_times_out() {
         .expect("slow-loris connection was not closed in time")
         .unwrap();
     let resp = String::from_utf8_lossy(&out);
-    assert!(resp.contains("408"), "expected 408 Request Timeout, got: {resp}");
+    assert!(
+        resp.contains("408"),
+        "expected 408 Request Timeout, got: {resp}"
+    );
 }
 
 #[tokio::test]
@@ -170,7 +173,9 @@ async fn graceful_shutdown_waits_for_open_connection() {
 
     // Open a keep-alive connection and complete one request, keeping it open.
     let mut s = TcpStream::connect(srv.addr).await.unwrap();
-    s.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n").await.unwrap();
+    s.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+        .await
+        .unwrap();
     let mut buf = [0u8; 1024];
     let n = s.read(&mut buf).await.unwrap();
     assert!(String::from_utf8_lossy(&buf[..n]).contains("200 OK"));

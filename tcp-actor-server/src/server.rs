@@ -167,7 +167,13 @@ async fn handle_connection(
                 Ok(parsed) => break parsed,
                 Err(ParseError::Incomplete) => {}
                 Err(ParseError::HeadTooLarge) => {
-                    respond(&mut wr, 431, "Request Header Fields Too Large", "header too large\n").await;
+                    respond(
+                        &mut wr,
+                        431,
+                        "Request Header Fields Too Large",
+                        "header too large\n",
+                    )
+                    .await;
                     break 'conn;
                 }
                 Err(ParseError::Unsupported) => {
@@ -245,13 +251,10 @@ async fn handle_connection(
 }
 
 /// Write a small error/response and ignore the result (we're about to close).
-async fn respond(
-    wr: &mut tokio::net::tcp::OwnedWriteHalf,
-    status: u16,
-    reason: &str,
-    body: &str,
-) {
-    let _ = wr.write_all(&build_response(status, reason, body, false, true)).await;
+async fn respond(wr: &mut tokio::net::tcp::OwnedWriteHalf, status: u16, reason: &str, body: &str) {
+    let _ = wr
+        .write_all(&build_response(status, reason, body, false, true))
+        .await;
 }
 
 /// Route a request to `(status, reason, body)`.
