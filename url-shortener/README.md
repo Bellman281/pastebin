@@ -5,9 +5,9 @@ A production-minded URL shortener REST API in **Rust**, built on **Axum** with
 adapters) architecture** with a strict inward-pointing dependency rule, so the
 business logic is framework- and database-agnostic and fully unit-testable.
 
-> **One of two independent services in this repo** — see the
-> [repository README](../README.md) for how it relates to the pastebin service
-> and for the shared architecture. No shared code or database between them.
+> **A self-contained service.** It has no dependency on anything outside this
+> folder — its own crate, lockfile, migrations, Dockerfile, and tests — so it
+> builds, runs, and ships entirely on its own.
 >
 > Status: **complete** — full CRUD + redirect, TTL expiry, host blocklist,
 > hardening middleware, opt-in per-IP rate limiting, and an optional Redis

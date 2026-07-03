@@ -1,7 +1,8 @@
 # Concurrency & Optimization Notes
 
 How this service shares state under load, why each piece uses the tool it uses,
-and the reasoning we can reuse when optimizing the pastebin service.
+and the reasoning to reuse when optimizing any similar service. This document is
+self-contained — the service builds, runs, and is understood from this folder.
 
 The one-line thesis: **there is no single "best" concurrency primitive — you
 match the tool to the access pattern.** Reaching for channels (or "lock-free")

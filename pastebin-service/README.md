@@ -5,11 +5,10 @@ a tiny browser client that encrypts and decrypts in-page. Stores text snippets
 ("pastes") and serves them back by id, with TTL expiry, burn-after-read, content
 size limits, optional per-IP rate limiting, and an optional Redis read-cache.
 
-> **One of two independent services in this repo** — see the
-> [repository README](../README.md) for how it relates to the URL shortener and
-> for the shared hexagonal architecture. This service has **no shared code or
-> database** with the other and **no Cargo workspace** linking them — it is a
-> standalone crate that builds and runs on its own.
+> **A self-contained service.** It has no dependency on anything outside this
+> folder — its own crate, lockfile, migrations, static assets, Dockerfile, and
+> tests — with **no Cargo workspace** linking it to anything else. It builds,
+> runs, and ships entirely on its own.
 >
 > Architecture: [`./docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 

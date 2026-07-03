@@ -1,17 +1,29 @@
 # Concurrency & Optimization Notes
 
-This service applies the same concurrency patterns as the sibling url-shortener.
-For the full rationale — the decision ladder and *why* each tool is chosen — see
-that service's [`docs/CONCURRENCY.md`](../../url-shortener/docs/CONCURRENCY.md).
-Here is how the patterns land in the pastebin.
+How this service shares state under load, and why each piece uses the tool it
+uses. This document is self-contained — the service builds, runs, and is
+understood entirely from this folder.
 
-## The decision ladder (short form)
+## The decision ladder
 
-Don't share → share immutable data with `Arc` (no lock) → short `Mutex`/`RwLock`
-critical section → atomics for a single scalar → message passing (channels/actor)
-for fire-and-forget / batchable / sequential work → hand-rolled lock-free only
-after measuring. "Lock-free everywhere" is a myth; match the tool to the access
-pattern.
+When two or more tasks need the same data, work down this list and stop at the
+first tool that fits (each rung is cheaper to reason about than the next):
+
+1. **Don't share** — give each task its own data.
+2. **Share immutable data with `Arc`** — read-only sharing needs no lock (an
+   `Arc` clone is an atomic ref-count bump; reads are wait-free).
+3. **Short `Mutex` / `RwLock` critical section** — a small synchronous
+   read-modify-write, held for a few lines, **never across `.await`**.
+4. **Atomics for a single scalar** — `AtomicU64::fetch_add`, genuinely lock-free.
+5. **Message passing (channels / actor)** — when work is *fire-and-forget*,
+   *batchable*, or genuinely *sequential*.
+6. **Hand-rolled lock-free structures** — last resort, only after measuring a
+   lock as the bottleneck.
+
+"Lock-free everywhere" is a myth: lock-free is a precise progress guarantee, not
+the absence of `Mutex`, and a single actor task serializes callers onto one core.
+Atomics (rung 4) are the one place lock-free is unambiguously right. Match the
+tool to the access pattern.
 
 ## What this service does
 

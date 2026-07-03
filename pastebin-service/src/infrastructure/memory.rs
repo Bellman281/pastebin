@@ -8,7 +8,7 @@
 //! `&mut` on one task, so data races are impossible by construction. The
 //! trade-off — and the reason production uses SQLite — is that every operation,
 //! including reads, is a channel round-trip serialized on the owning task.
-//! (See `docs/CONCURRENCY.md` and the url-shortener's matching design.)
+//! (See `docs/CONCURRENCY.md`.)
 //!
 //! Lifecycle: the task lives as long as any sender clone exists; when the last
 //! handle drops, the channel closes, `recv()` returns `None`, and the task
