@@ -72,6 +72,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/vendor/qrcode.js", get(qrcode_js))
         .route("/health", get(health))
         .route("/health/ready", get(ready))
+        .route("/metrics", get(metrics))
         .route("/api/pastes", post(create_paste))
         .route("/api/pastes/:id", get(get_paste).delete(delete_paste))
         .route("/raw/:id", get(raw_paste))
@@ -204,6 +205,11 @@ async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
+/// `GET /metrics` — process-wide, lock-free counters (read with an atomic load).
+async fn metrics(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "pastes_served": state.metrics.pastes_served() }))
+}
+
 /// Readiness probe — checks the store; `503` when unreachable.
 async fn ready(State(state): State<Arc<AppState>>) -> Response {
     match state.service.ready().await {
@@ -235,6 +241,7 @@ async fn get_paste(
     Path(id): Path<String>,
 ) -> Result<Json<PasteResponse>, AppError> {
     let paste = state.service.fetch(id).await?;
+    state.metrics.record_served(); // lock-free atomic bump
     Ok(Json(PasteResponse::from_paste(&paste)))
 }
 
@@ -244,6 +251,7 @@ async fn raw_paste(
     Path(id): Path<String>,
 ) -> Result<Response, AppError> {
     let paste = state.service.fetch(id).await?;
+    state.metrics.record_served(); // lock-free atomic bump
     let mut response = Response::new(Body::from(paste.content.as_str().to_owned()));
     response.headers_mut().insert(
         header::CONTENT_TYPE,

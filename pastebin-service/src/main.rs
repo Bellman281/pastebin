@@ -12,7 +12,8 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use pastebin_service::cache::{Cache, NoOpCache, RedisCache};
 use pastebin_service::domain::PasteRepository;
 use pastebin_service::infrastructure::SqlitePasteRepository;
-use pastebin_service::{build_app_with_cache, Config};
+use pastebin_service::views::{BatchingViewRecorder, ViewRecorder};
+use pastebin_service::{build_app_with_cache_and_views, Config};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -37,7 +38,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     );
 
     let cache = build_cache().await;
-    let app = build_app_with_cache(config, repo, cache);
+
+    // View counts are recorded through a background batcher: each fetch only
+    // enqueues its id (a non-blocking channel send), and one task coalesces them
+    // into periodic `views = views + n` writes. This keeps the fetch path off
+    // the database write lock.
+    let (view_recorder, views_task) = BatchingViewRecorder::spawn_default(repo.clone());
+    let views: Arc<dyn ViewRecorder> = view_recorder.clone();
+    let app = build_app_with_cache_and_views(config, repo, cache, views);
 
     let listener = TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "pastebin-service listening");
@@ -50,6 +58,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     )
     .with_graceful_shutdown(shutdown_signal())
     .await?;
+
+    // Graceful shutdown: the server has stopped accepting requests, so flush any
+    // buffered view counts before exit (no lost counts), then stop the task.
+    view_recorder.flush().await;
+    views_task.abort();
 
     Ok(())
 }

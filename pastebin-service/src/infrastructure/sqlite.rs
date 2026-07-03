@@ -106,8 +106,9 @@ impl PasteRepository for SqlitePasteRepository {
         }))
     }
 
-    async fn increment_views(&self, id: &PasteId) -> Result<bool, RepoError> {
-        let result = sqlx::query("UPDATE pastes SET views = views + 1 WHERE id = ?")
+    async fn increment_views_by(&self, id: &PasteId, n: i64) -> Result<bool, RepoError> {
+        let result = sqlx::query("UPDATE pastes SET views = views + ? WHERE id = ?")
+            .bind(n)
             .bind(id.as_str())
             .execute(&self.pool)
             .await
@@ -166,6 +167,10 @@ mod tests {
 
         assert!(repo.increment_views(&id).await.unwrap());
         assert_eq!(repo.get(&id).await.unwrap().unwrap().views, 1);
+
+        // Batched increment writes `views = views + n` in a single statement.
+        assert!(repo.increment_views_by(&id, 9).await.unwrap());
+        assert_eq!(repo.get(&id).await.unwrap().unwrap().views, 10);
 
         assert!(repo.delete(&id).await.unwrap());
         assert!(repo.get(&id).await.unwrap().is_none());

@@ -13,6 +13,7 @@ use crate::cache::{Cache, NoOpCache};
 use crate::domain::{
     BoxedError, Content, Paste, PasteId, PasteRepository, RepoError, ValidationError,
 };
+use crate::views::{ImmediateViewRecorder, ViewRecorder};
 
 /// Length of an auto-generated paste id.
 const GENERATED_ID_LEN: usize = 8;
@@ -51,6 +52,9 @@ pub struct PasteService {
     repo: Arc<dyn PasteRepository>,
     /// Read-cache for the hot fetch path (NoOp when disabled).
     cache: Arc<dyn Cache>,
+    /// Where paste views are recorded. Immediate by default; the composition
+    /// root swaps in a channel-backed batcher for production.
+    views: Arc<dyn ViewRecorder>,
 }
 
 impl PasteService {
@@ -59,9 +63,23 @@ impl PasteService {
         Self::with_cache(repo, Arc::new(NoOpCache))
     }
 
-    /// Construct with an explicit cache implementation.
+    /// Construct with an explicit cache and the default (immediate) view
+    /// recorder — one DB write per view. Keeps counts exact, convenient for
+    /// tests and single-instance runs.
     pub fn with_cache(repo: Arc<dyn PasteRepository>, cache: Arc<dyn Cache>) -> Self {
-        Self { repo, cache }
+        let views: Arc<dyn ViewRecorder> = Arc::new(ImmediateViewRecorder::new(repo.clone()));
+        Self { repo, cache, views }
+    }
+
+    /// Construct with an explicit cache *and* view recorder. Production passes a
+    /// [`crate::views::BatchingViewRecorder`] so fetches only enqueue a view
+    /// (non-blocking) and a background task batches the DB writes.
+    pub fn with_cache_and_views(
+        repo: Arc<dyn PasteRepository>,
+        cache: Arc<dyn Cache>,
+        views: Arc<dyn ViewRecorder>,
+    ) -> Self {
+        Self { repo, cache, views }
     }
 
     /// Create a paste from `content`, with optional syntax hint, TTL, and
@@ -112,7 +130,7 @@ impl PasteService {
                 if paste.is_expired(now_unix()) {
                     self.cache.delete(id.as_str()).await;
                 } else {
-                    let _ = self.repo.increment_views(&id).await; // best-effort
+                    self.views.record(id).await; // non-blocking enqueue (or immediate)
                     return Ok(paste);
                 }
             }
@@ -135,7 +153,9 @@ impl PasteService {
                     self.cache.set(id.as_str(), &json, ttl).await;
                 }
             }
-            self.repo.increment_views(&id).await?;
+            // Counting a view must never fail (or block) a fetch, so it is
+            // best-effort and fire-and-forget — not propagated with `?`.
+            self.views.record(id).await;
         }
         Ok(paste)
     }

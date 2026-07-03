@@ -154,8 +154,17 @@ pub trait PasteRepository: Send + Sync + 'static {
     /// Fetch a paste by id, or `None` if it does not exist.
     async fn get(&self, id: &PasteId) -> Result<Option<Paste>, RepoError>;
 
-    /// Increment the view counter; returns `true` if a row was updated.
-    async fn increment_views(&self, id: &PasteId) -> Result<bool, RepoError>;
+    /// Increment the view counter by `n` (`n >= 0`); returns `true` if a row was
+    /// updated. This is the primitive the batched view-counter writes through, so
+    /// many coalesced views become a single `views = views + n` update.
+    async fn increment_views_by(&self, id: &PasteId, n: i64) -> Result<bool, RepoError>;
+
+    /// Increment the view counter by one. Provided in terms of
+    /// [`increment_views_by`](Self::increment_views_by) so adapters implement only
+    /// the batched form.
+    async fn increment_views(&self, id: &PasteId) -> Result<bool, RepoError> {
+        self.increment_views_by(id, 1).await
+    }
 
     /// Delete a paste; returns `true` if a row was removed.
     async fn delete(&self, id: &PasteId) -> Result<bool, RepoError>;
